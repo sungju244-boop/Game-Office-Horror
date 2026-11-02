@@ -118,8 +118,26 @@ namespace NightEval.Director
                     {
                         s.Terminal.ClearBody();
                         s.Terminal.ShowCenter(string.IsNullOrEmpty(node.Wait.Screen) ? "다음 기록 대기 중" : vars.Format(node.Wait.Screen), "· · ·");
-                        if (!string.IsNullOrEmpty(node.Wait.Hint)) s.Hud.SetObjective(vars.Format(node.Wait.Hint));
-                        while (!vars.Truthy(node.Wait.Flag)) yield return null;
+                        string hint = vars.Format(node.Wait.Hint ?? "");
+                        if (hint.Length > 0) s.Hud.SetObjective(hint);
+                        float waited = 0f;
+                        bool reminded = false;
+                        while (!vars.Truthy(node.Wait.Flag))
+                        {
+                            waited += Time.deltaTime;
+                            if (!reminded && waited > 90f && hint.Length > 0)
+                            {
+                                reminded = true;
+                                s.Hud.SetObjective(hint + "  (E 로 확인)");
+                            }
+                            // 안전장치: 확인 지점을 끝내 찾지 못해도 진행이 영원히 멈추지는 않게
+                            if (waited > 240f)
+                            {
+                                Debug.LogWarning("[야간 평가실] 확인 대기 시간 초과로 자동 진행: " + node.Wait.Flag);
+                                vars.Set(node.Wait.Flag, "1");
+                            }
+                            yield return null;
+                        }
                         s.Hud.SetObjective(null);
                         s.Terminal.ShowCenter("새 기록 1건", "자리에 앉아 확인하십시오");
                         s.Terminal.PlaySfx("sfx_beep_new", 0.6f, 0f);

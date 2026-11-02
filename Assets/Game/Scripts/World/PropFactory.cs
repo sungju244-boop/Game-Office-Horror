@@ -133,14 +133,14 @@ namespace NightEval.World
                 Box(top.transform, "SideR", new Vector3(0.01f, 0.1f, 0.52f), new Vector3(0.18f, -0.02f, -0.04f), "metal_dark");
                 drawer = top.AddComponent<DrawerSlide>();
             }
-            float h = 0.75f;
+            // 책상 몸체 충돌은 상판 높이까지만 (위에 놓인 모니터를 조준할 수 있도록)
+            AddCollider(root, new Vector3(0, 0.375f, 0f), new Vector3(1.4f, 0.75f, 0.72f));
             if (partition)
             {
                 Box(t, "Partition", new Vector3(1.42f, 1.25f, 0.05f), new Vector3(0, 0.625f, 0.42f), "fabric", default, 0.6f);
                 Box(t, "PartitionCap", new Vector3(1.44f, 0.025f, 0.065f), new Vector3(0, 1.262f, 0.42f), "metal");
-                h = 1.27f;
+                AddCollider(root, new Vector3(0, 0.635f, 0.42f), new Vector3(1.42f, 1.27f, 0.06f));
             }
-            AddCollider(root, new Vector3(0, h * 0.5f, 0.04f), new Vector3(1.4f, h, partition ? 0.8f : 0.72f));
             return root;
         }
 

@@ -73,6 +73,7 @@ namespace NightEval
             QualitySettings.shadows = ShadowQuality.All;
             QualitySettings.shadowResolution = ShadowResolution.High;
             QualitySettings.shadowDistance = 22f;
+            QualitySettings.shadowCascades = 2;
             QualitySettings.antiAliasing = 4;
             QualitySettings.vSyncCount = 1;
             Application.targetFrameRate = 120;

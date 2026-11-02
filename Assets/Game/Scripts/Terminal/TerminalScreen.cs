@@ -224,10 +224,10 @@ namespace NightEval.Terminal
         {
             switch (who)
             {
-                case "user": return "<color=#8ea4b6>사용자 ▸ </color>";
-                case "ai": return "<color=#7fd8ff>AI ▸ </color>";
+                case "user": return "<color=#8ea4b6>사용자 › </color>";
+                case "ai": return "<color=#7fd8ff>AI › </color>";
                 case "corp": return "<color=#e0b468>[회사] </color>";
-                case "me": return "<color=#a9dca0>평가자 117 ▸ </color>";
+                case "me": return "<color=#a9dca0>평가자 117 › </color>";
                 default: return "<color=#6d8494>[시스템] </color>";
             }
         }

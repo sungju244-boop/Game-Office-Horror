@@ -245,7 +245,7 @@
       ],
       "choices": [
         { "text": "메모를 닫는다", "set": ["r4=close", "r4_label=메모를 닫음", "comply+1"], "events": ["r4_close"], "next": "r4_close", "unsettling": true },
-        { "text": "116의 기록을 찾는다", "set": ["r4=search", "r4_label=116의 기록을 찾음", "trust_ai+1"], "events": ["r4_search"], "next": "r4_search" }
+        { "text": "116번을 찾는다", "set": ["r4=search", "r4_label=116의 기록을 찾음", "trust_ai+1"], "events": ["r4_search"], "next": "r4_search" }
       ]
     },
     {

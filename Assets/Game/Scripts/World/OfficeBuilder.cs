@@ -33,10 +33,36 @@ namespace NightEval.World
             foreach (object o in MiniJson.List(L, "holes")) BuildHole(o as List<object>, cables, pf, ctx);
             foreach (object o in MiniJson.List(L, "cables")) BuildCable(o as Dictionary<string, object>, cables, pf);
             BuildOutside(MiniJson.Obj(L, "backdrop"), root.transform, pf, ctx);
+            Batch(new[] { structure, props, lights, cables });
 
             reg.Avatar = pf.Avatar(root.transform);
             reg.Avatar.SeatPoint = reg.ChairSeat;
             return reg;
+        }
+
+        /// <summary>움직이지 않는 메시를 묶어 그리기 호출 수를 줄인다 (문·서랍·CCTV·시계 바늘 제외).</summary>
+        static void Batch(Transform[] roots)
+        {
+            try
+            {
+                foreach (var root in roots)
+                {
+                    var list = new List<GameObject>();
+                    foreach (var r in root.GetComponentsInChildren<MeshRenderer>())
+                    {
+                        if (r.GetComponentInParent<DrawerSlide>() != null) continue;
+                        if (r.GetComponentInParent<Door>() != null) continue;
+                        if (r.GetComponentInParent<CctvCamera>() != null) continue;
+                        if (r.GetComponentInParent<WallClock>() != null) continue;
+                        list.Add(r.gameObject);
+                    }
+                    if (list.Count > 1) StaticBatchingUtility.Combine(list.ToArray(), root.gameObject);
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[야간 평가실] 정적 배칭 생략: " + e.Message);
+            }
         }
 
         static Vector3 XZ(float[] a, float y = 0f) => a.Length >= 2 ? new Vector3(a[0], y, a[1]) : Vector3.zero;
@@ -294,10 +320,10 @@ namespace NightEval.World
                     break;
                 }
                 case "notice":
-                    reg.AddInteractable(id, pf.Decal(parent, id, "notice", new Vector2(0.42f, 0.594f), pos, rot, true).AddComponent<Interactable>());
+                    reg.AddInteractable(id, pf.Decal(parent, id, "notice", new Vector2(0.4f, 0.6f), pos, rot, true).AddComponent<Interactable>());
                     break;
                 case "calendar":
-                    reg.AddInteractable(id, pf.Decal(parent, id, "calendar", new Vector2(0.3f, 0.42f), pos, rot, true).AddComponent<Interactable>());
+                    reg.AddInteractable(id, pf.Decal(parent, id, "calendar", new Vector2(0.3f, 0.45f), pos, rot, true).AddComponent<Interactable>());
                     break;
                 case "sign":
                 {

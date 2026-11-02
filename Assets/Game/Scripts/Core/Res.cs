@@ -49,6 +49,10 @@ namespace NightEval
             return Font.CreateDynamicFontFromOSFont(OsFallbackFonts, 32);
         }
 
+        /// <summary>
+        /// 텍스처: Resources/Textures 에 일반 이미지가 있으면 그것을, 없으면
+        /// Resources/TexturesRaw/&lt;이름&gt;.bytes (PNG 원본)를 압축 없이 읽는다 (픽셀 글자가 뭉개지지 않게).
+        /// </summary>
         public static Texture2D Tex(string name, bool point = true)
         {
             if (string.IsNullOrEmpty(name)) return null;
@@ -56,7 +60,16 @@ namespace NightEval
             t = Resources.Load<Texture2D>("Textures/" + name);
             if (t == null)
             {
-                Warn("tex:" + name, "텍스처 없음: Textures/" + name);
+                var raw = Resources.Load<TextAsset>("TexturesRaw/" + name);
+                if (raw != null)
+                {
+                    t = new Texture2D(2, 2, TextureFormat.RGBA32, true) { name = name };
+                    if (!t.LoadImage(raw.bytes, false)) t = null;
+                }
+            }
+            if (t == null)
+            {
+                Warn("tex:" + name, "텍스처 없음: " + name);
                 return null;
             }
             t.filterMode = point ? FilterMode.Point : FilterMode.Bilinear;
