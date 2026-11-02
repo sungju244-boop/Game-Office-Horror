@@ -1,0 +1,34 @@
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+*.csproj
+*.sln
+*.slnx
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.vs/
+.vscode/
+.idea/
+*.apk
+*.aab
+*.unitypackage
+crashlytics-buildid.txt
+sysinfo.txt
+.DS_Store
+# Dev tool outputs
+/Tools/**/bin/
+/Tools/**/obj/
+/Tools/_out/
