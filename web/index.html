@@ -1,0 +1,143 @@
+<title>야간 평가실</title>
+<style>
+  /* 한 가지 어두운 화면으로만 디자인 (공포 게임 화면) */
+  :root {
+    color-scheme: dark;
+    --bg: #03060b;
+    --ink: #dbe7f0;
+    --dim: #7f95a4;
+    --line: #9ecbe9;
+    --box: #05101a;
+    --hot: #c7ebff;
+    --warn: #f2d1d1;
+    --font: 'Galmuri11', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    --font-b: 'Galmuri11B', 'Galmuri11', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  body { font-family: var(--font); }
+  #view, #view canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .layer { position: fixed; inset: 0; pointer-events: none; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); text-align: center; }
+  .shade { background: rgba(1, 3, 6, 0.86); }
+  .black { background: #000; }
+  button { font-family: var(--font-b); font-size: 26px; color: var(--dim); background: none; border: 0; cursor: pointer; padding: 6px 14px; }
+  button:hover, button:focus-visible { color: var(--ink); outline: none; }
+  button:hover::before, button:focus-visible::before { content: '▶ '; }
+  h1 { font-family: var(--font-b); font-size: clamp(40px, 7vw, 84px); margin: 0; letter-spacing: 0.02em; color: #e3eef6; }
+  .sub { color: var(--dim); font-size: 18px; }
+  .note { color: var(--dim); font-size: 15px; }
+  #dot { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: rgba(220, 235, 255, 0.75); }
+  #ring { position: fixed; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border: 2px solid rgba(220, 235, 255, 0.45); }
+  #prompt { position: fixed; left: 0; right: 0; top: calc(50% + 26px); text-align: center; font-size: 22px; color: #e8f2fa; text-shadow: 2px 2px 0 #000; }
+  #mono { position: fixed; left: 0; right: 0; bottom: 120px; text-align: center; font-size: 26px; color: #fff; text-shadow: 2px 2px 0 #000; padding: 0 16px; transition: opacity 0.25s; }
+  #objective { position: fixed; left: 0; right: 0; bottom: 56px; text-align: center; font-size: 20px; color: #b3cfdf; text-shadow: 2px 2px 0 #000; padding: 0 16px; }
+  #caption { position: fixed; left: 0; right: 0; top: 54px; text-align: center; font-size: 18px; color: #9db0bd; text-shadow: 2px 2px 0 #000; }
+  #help { position: fixed; left: 24px; top: 20px; font-size: 17px; color: #9db0bd; text-shadow: 2px 2px 0 #000; }
+  #clickhint { position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%); pointer-events: auto; cursor: pointer;
+    font-size: 20px; color: var(--ink); background: rgba(2, 6, 10, 0.75); border: 2px solid var(--line); padding: 10px 18px; }
+  #loading .bar { width: min(420px, 80vw); height: 8px; background: #102030; }
+  #loadbar { height: 100%; width: 0; background: var(--line); }
+  #gate { cursor: pointer; }
+  #gate .big { font-family: var(--font-b); font-size: 30px; }
+  #title { align-items: flex-start; text-align: left; padding-left: max(8vw, 16px); background: linear-gradient(90deg, rgba(1, 3, 6, 0.9) 0%, rgba(1, 3, 6, 0.75) 45%, rgba(1, 3, 6, 0) 75%); }
+  #title .menu { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 30px; }
+  #title .foot { position: fixed; bottom: 24px; left: max(8vw, 16px); right: 24px; display: flex; justify-content: space-between; color: var(--dim); font-size: 15px; }
+  #intro pre { font-family: var(--font); font-size: clamp(18px, 2.2vw, 28px); line-height: 1.6; color: #d0dae2; text-align: left; white-space: pre-wrap; margin: 0; max-width: 900px; }
+  #pause .menu, #confirm .row, #ending .menu { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  #settings .rows { display: grid; grid-template-columns: auto minmax(160px, 420px) 60px; gap: 18px 16px; align-items: center; }
+  #settings label { font-size: 22px; text-align: right; }
+  #settings input[type=range] { width: 100%; accent-color: #8fc3e3; }
+  #confirm .row { flex-direction: row; gap: 28px; flex-wrap: wrap; justify-content: center; }
+  .bigbox { font-family: var(--font-b); font-size: 34px; color: var(--hot); background: var(--box); border: 4px solid var(--line); padding: 26px 36px; min-width: 260px; }
+  .bigbox:hover, .bigbox:focus-visible { background: var(--hot); color: #04080c; }
+  .bigbox:hover::before, .bigbox:focus-visible::before { content: ''; }
+  #endnum { color: #8a96a0; font-size: 22px; letter-spacing: 0.08em; min-height: 1.4em; }
+  #endtitle { font-family: var(--font-b); font-size: clamp(36px, 5vw, 60px); color: #fff; min-height: 1.3em; }
+  #endbody { max-width: 980px; font-size: clamp(17px, 1.9vw, 24px); line-height: 1.7; color: #d4dbe0; }
+  #endbody p { margin: 0.2em 0; }
+  @media (prefers-reduced-motion: reduce) { #mono { transition: none; } }
+</style>
+
+<div id="view"></div>
+
+<div class="layer" id="hud">
+  <div id="dot" hidden></div>
+  <div id="ring" hidden></div>
+  <div id="prompt"></div>
+  <div id="caption"></div>
+  <div id="help"></div>
+  <div id="mono"></div>
+  <div id="objective"></div>
+  <div id="clickhint" hidden>화면을 클릭하면 다시 움직일 수 있습니다</div>
+</div>
+
+<div class="screen black" id="loading">
+  <div class="sub">야간 평가실</div>
+  <div class="bar"><div id="loadbar"></div></div>
+  <div class="note" id="loadmsg">불러오는 중…</div>
+</div>
+
+<div class="screen black" id="gate" hidden>
+  <div class="big">클릭해서 시작</div>
+  <div class="note">헤드폰 권장 · 점프스케어 없음 · 소리가 납니다</div>
+</div>
+
+<div class="screen" id="title" hidden>
+  <h1>야간 평가실</h1>
+  <div class="sub">계약직 야간 안전성 평가자 · 근무 3일차</div>
+  <div class="menu">
+    <button id="start" type="button">근무 시작</button>
+    <button id="titlesettings" type="button">설정</button>
+  </div>
+  <div class="foot"><span id="endcount">엔딩 0 / 6</span><span>테스트판 · WASD 이동 · E 상호작용 · ESC 메뉴</span></div>
+</div>
+
+<div class="screen black" id="intro" hidden>
+  <pre id="introtext"></pre>
+  <div class="note">클릭: 넘기기</div>
+</div>
+
+<div class="screen shade" id="pause" hidden>
+  <h1 style="font-size:48px">일시정지</h1>
+  <div class="menu">
+    <button id="resume" type="button">계속하기</button>
+    <button id="pausesettings" type="button">설정</button>
+    <button id="restart" type="button">처음부터 다시</button>
+    <button id="totitle" type="button">타이틀로</button>
+  </div>
+  <div class="note">WASD 이동 · Shift 달리기 · E 상호작용 · 컴퓨터 앞에서 E 앉기/일어나기 · 단말기: 클릭/Space 넘기기, 휠 스크롤</div>
+</div>
+
+<div class="screen" id="settings" hidden style="background:rgba(1,3,6,0.94)">
+  <h1 style="font-size:48px">설정</h1>
+  <div class="rows">
+    <label for="set_brightness">밝기</label><input id="set_brightness" type="range" min="0" max="100"><span id="val_brightness"></span>
+    <label for="set_master">전체 음량</label><input id="set_master" type="range" min="0" max="100"><span id="val_master"></span>
+    <label for="set_music">배경음</label><input id="set_music" type="range" min="0" max="100"><span id="val_music"></span>
+    <label for="set_sens">마우스 감도</label><input id="set_sens" type="range" min="0" max="100"><span id="val_sens"></span>
+  </div>
+  <div class="note">어두워도 길과 글자가 보일 만큼 밝기를 맞춰 주세요</div>
+  <button id="closesettings" type="button">닫기</button>
+</div>
+
+<div class="screen" id="confirm" hidden style="background:rgba(0,0,0,0.75)">
+  <div id="confirmq" style="font-family:var(--font-b);font-size:36px"></div>
+  <div class="row">
+    <button class="bigbox" id="yes" type="button">퇴근한다</button>
+    <button class="bigbox" id="no" type="button">돌아간다</button>
+  </div>
+</div>
+
+<div class="screen black" id="ending" hidden>
+  <div id="endnum"></div>
+  <div id="endtitle"></div>
+  <div id="endbody"></div>
+  <div class="menu" id="endbuttons" hidden>
+    <button id="endtotitle" type="button">처음으로</button>
+    <button id="retry" type="button">추격 직전부터 다시</button>
+  </div>
+</div>
+
+<script type="module" src="js/game.js"></script>
