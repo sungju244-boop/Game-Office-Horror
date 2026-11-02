@@ -32,3 +32,6 @@ sysinfo.txt
 /Tools/**/bin/
 /Tools/**/obj/
 /Tools/_out/
+
+# 개발 도구 프로젝트 파일은 포함
+!/Tools/**/*.csproj

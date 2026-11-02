@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>Assembly-CSharp</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>UNITY_STANDALONE;ENABLE_LEGACY_INPUT_MANAGER</DefineConstants>
+    <Nullable>disable</Nullable>
+    <NoWarn>CS0649;CS0414</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RootDir)/Assets/Game/Scripts/**/*.cs" />
+    <Compile Include="stubs/UnityEngineUI.cs" />
+    <Reference Include="UnityEngine"><HintPath>$(UnityLib)/UnityEngine.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
