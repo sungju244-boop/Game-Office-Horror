@@ -13,12 +13,15 @@ const TEX = ['carpet', 'floor_tile', 'ceiling_tile', 'wall', 'desk_top', 'metal'
   'notice_en', 'badge117_en', 'badge116_en', 'sticky_en', 'sign_room_en', 'panel_en', 'calendar_en', 'exit_sign_en', 'screen_117_en'];
 const ENDING_COUNT = 6;
 const EYE = 1.62, RADIUS = 0.3, WALK = 2.3, SPRINT = 4.9, REACH = 2.3;
+const FOV = 62;
+const CAT_SPEED = WALK / 4; // 겁쟁이 모드 고양이: 플레이어 걷기 속도의 1/4 (약 0.58 m/s)
 const REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const PARK_Y = -60;
 // 매 프레임 쓰는 임시 객체 (가비지 수집 멈춤 방지)
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 const _e1 = new THREE.Euler(0, 0, 0, 'YXZ'), _m1 = new THREE.Matrix4(), _c0 = new THREE.Vector2(0, 0), _sz = new THREE.Vector2();
 const UP = new THREE.Vector3(0, 1, 0);
+const _aim = new THREE.Vector3();
 
 // ---------- 저장 (이 브라우저에만) ----------
 const store = {
@@ -193,8 +196,12 @@ class Session {
     this.catTex = this.mats.tex('screen_cat', 0, false);
     this.monster = buildMonster(this.mats, scene, this.faceTex);
     this.cat = buildCat(this.mats, scene, 0, 0);
-    this.monLight = new THREE.PointLight(0xa8c4ff, 0, 4.5, 1.6);
+    this.monLight = new THREE.PointLight(0xa8c4ff, 0, 6, 1.6);
     scene.add(this.monLight);
+    // 어둠 속에서도 괴물 실루엣이 읽히도록 아주 약한 자체 발광 (값만 바뀌어 셰이더는 그대로)
+    this.mats.get('monster_skin').emissive?.setRGB(0.05, 0.055, 0.07);
+    this.mats.get('monster_bone').emissive?.setRGB(0.04, 0.04, 0.045);
+    app.camera.fov = FOV; app.camera.updateProjectionMatrix();
     this.vis = null; this.visLoops = [];
     this.parkChasers();
     this.term = new Terminal(this.reg.live, this.reg.crtLight, this.reg.crtGlow, (n, v) => this.termSfx(n, v));
@@ -214,6 +221,8 @@ class Session {
     this.fogBase = 0.075;
     this.fog = { from: 0.075, to: 0.075, t: 1, dur: 1 };
     this.extBase = 1; this.flickerT = 0; this.flickT = 0; this.flickV = 1;
+    // 추격 시작 장면(카메라 연출): 조작 잠금, 바라볼 곳, 시야각, 괴물 얼굴 빛 세기
+    this.cineLock = false; this.lookAim = null; this.fovTarget = FOV; this.monGlow = 1.2; this.pendingHint = null;
     this.scareTok = 0; this.scareBusy = false; this.rattle = null; this.shadowAcc = 0;
     this.setupFeed();
     this.setupInteractions();
@@ -300,7 +309,8 @@ class Session {
   }
   finishStand() {
     this.reg.avatar.userData.isSeated = false;
-    if (app.phase === 'play') { this.p.move = this.p.look = true; setCrosshair(true); }
+    // 추격 시작 장면 중에는 조작을 돌려주지 않는다
+    if (app.phase === 'play' && !this.cineLock) { this.p.move = this.p.look = true; setCrosshair(true); }
   }
 
   // ---------- 상호작용 기본값 (Unity EnvironmentDirector 와 동일) ----------
@@ -384,7 +394,10 @@ class Session {
         else { A.fadeLoop(this.loops.get('phone'), 0.3); this.loops.delete('phone'); }
         break;
       case 'checkpoint': this.checkpoint(a); break;
-      case 'hint': setObjective(v.format(a.text || '')); break;
+      case 'hint':
+        // 카메라 연출 중에 "달려!" 안내가 먼저 뜨지 않도록, 조작을 돌려줄 때 보여 준다
+        if (this.cineLock) this.pendingHint = v.format(a.text || ''); else setObjective(v.format(a.text || ''));
+        break;
       case 'caption': caption(v.format(a.text || '')); break;
       case 'monologue': if (a.inspect) this.inspect(a.inspect); else monologue([v.format(a.text || '')]); break;
       case 'tension': { const lv = a.level | 0; A.setTension(lv); this.term.tension = lv; this.tension = lv; v.set('tension', lv); break; }
@@ -483,6 +496,8 @@ class Session {
     const tok = ++this.scareTok;
     const ok = () => this.alive && tok === this.scareTok;
     this.scareBusy = true;
+    // 추격 시작: 입구 문 잠금이 풀리는 소리 → 카메라가 천천히 입구 문을 보며 조금씩 확대 (예고 3초)
+    if (kind === 'burst' && this.cineLock) { const fd = this.anchorPos('FrontDoor'); this.lookAim = { get: () => fd, k: 2.5 }; this.fovTarget = 54; }
     try {
       if (this.chicken) {
         for (let n = 3; n > 0; n--) {
@@ -569,7 +584,7 @@ class Session {
     const stepped = animMonster(m, dt, speed);
     // 얼굴 화면이 내는 희미한 빛
     this.monLight.position.set(pos.x - Math.sin(yaw) * 0.5, 1.9, pos.z - Math.cos(yaw) * 0.5);
-    this.monLight.intensity = 0.7;
+    this.monLight.intensity = this.monGlow;
     return stepped;
   }
   lightsOut(on) { this.extBase = on ? 0 : 1; }
@@ -658,18 +673,54 @@ class Session {
     else { A.duck(false); A.play2D('js_shriek', 0.9); flash(0.5); shake(0.05, 0.6); }
   }
 
-  /** 추격 시작: 입구 문이 터지듯 열리고 그것이 들어온다 */
+  /** 추격 시작: 입구 문이 터지듯 열리고 그것이 들어온다.
+   *  카메라가 그것을 따라가며 확대해 위치를 보여 준 뒤, 도망칠 곳(뒤쪽 문)으로 돌아가고 나서 조작을 돌려준다. */
   async scareBurst(a, ok) {
     const A = app.audio, door = this.reg.doors.get('FrontDoor'), dpos = this.anchorPos('FrontDoor');
+    const ch = this.chase;
+    // 그것이 설 자리: 입구 문 바로 안쪽 (자리에서 잘 보이는 곳)
+    const stage = new THREE.Vector3(dpos.x, 0, dpos.z - 0.65);
     if (door) { door.setLocked(false); door.setOpen(1, this.chicken ? 0.6 : 0.2); }
     A.duck(false);
-    if (this.chicken) A.playAt('sfx_boing', dpos, 0.8, 18);
-    else { A.playAt('sfx_door_bang', dpos, 1.0, 22); A.playAt('mon_roar', dpos, 1.0, 26); flash(0.45); shake(0.035, 0.6); this.flickerT = 1.2; }
-    const ch = this.chase;
-    if (ch && !ch.done) ch.shown = true;
-    await this.sleep(0.75);
-    if (ch && !ch.done) ch.released = true;
+    if (this.chicken) {
+      A.playAt('sfx_boing', dpos, 0.8, 18);
+      // 고양이는 문간에 '뿅' 하고 나타난다
+      if (ch && !ch.done) { ch.pos.copy(stage); ch.trail = [[stage.x, -stage.z], [this.p.pos.x, -this.p.pos.z]]; ch.shown = true; }
+    } else {
+      A.playAt('sfx_door_bang', dpos, 1.0, 22); A.playAt('mon_roar', dpos, 1.0, 26);
+      flash(0.45); shake(0.035, 0.5); this.flickerT = 0.35;
+      for (const l of this.lights('hall')) l.fadeTo(1.1, 0.1); // 문 뒤 복도 등이 켜져 실루엣이 드러난다
+      if (ch && !ch.done) { ch.shown = true; ch.intro = stage; } // 복도에서 문간까지 걸어 들어온다
+    }
+    if (!ch || ch.done) return;
+    if (this.cineLock) {
+      const h = this.chicken ? 0.45 : 1.55;
+      this.monGlow = this.chicken ? 0 : 2.0;
+      this.lookAim = { get: () => _aim.set(ch.pos.x, h, ch.pos.z), k: 7 };
+      this.fovTarget = this.chicken ? 34 : 44;
+      await this.until(() => !ch.intro || ch.done || !this.alive);
+      if (!this.chicken) { _v1.set(ch.pos.x, 2.1, ch.pos.z); A.playAt('sfx_static_3', _v1, 0.7, 14); }
+      await this.sleep(this.chicken ? 1.6 : 1.4);
+      if (ch.done || !this.alive) return;
+      const back = this.anchorPos('BackDoor');
+      this.fovTarget = FOV;
+      this.lookAim = { get: () => back, k: 4 };
+      this.monGlow = 1.2;
+      await this.sleep(0.9);
+      this.endChaseIntro();
+      await this.sleep(this.chicken ? 0.2 : 1.2);
+    }
+    if (!ch.done) ch.released = true;
   }
+  /** 카메라 연출을 끝내고 조작을 돌려준다 */
+  endChaseIntro() {
+    const had = this.cineLock;
+    this.cineLock = false; this.lookAim = null; this.fovTarget = FOV; this.monGlow = 1.2;
+    if (!had) return;
+    if (this.pendingHint) { setObjective(this.pendingHint); this.pendingHint = null; }
+    if (app.phase === 'play' && !this.seat.seated && !this.seat.dir) { this.p.move = this.p.look = true; setCrosshair(true); }
+  }
+  resetCine() { this.cineLock = false; this.lookAim = null; this.fovTarget = FOV; this.pendingHint = null; this.monGlow = 1.2; }
 
   // ---------- 이야기 진행 ----------
   async runStory(id) {
@@ -747,11 +798,20 @@ class Session {
         yaw: Math.atan2(-(this.p.pos.x - spawn.x), -(this.p.pos.z - spawn.z)),
         trail: [[ux, uz - 0.3], [ux, uz + 0.8], [this.p.pos.x, -this.p.pos.z]],
         exit: this.anchorPos('ExitPoint'),
-        shown: false, released: false, fallback: 10, t: 0, speed: 0, done: false, resolve, loops: null, audioMode: null, stepN: 0,
+        shown: false, released: false, intro: null, fallback: 14, t: 0, speed: 0, done: false, resolve, loops: null, audioMode: null, stepN: 0,
         exitIt: this.reg.its.get('ExitDoor'),
       };
       ch.exitIt?.add(t('pExit'), () => !ch.done, () => this.escape(ch), 50, ch);
       this.chase = ch;
+      // 추격 시작 장면: 조작을 잠시 멈추고, 카메라로 도망칠 곳과 그것의 위치를 차례로 보여 준다
+      this.cineLock = true;
+      if (!this.seat.seated && !this.seat.dir) { this.p.move = this.p.look = false; setCrosshair(false); }
+      this.until(() => !this.seat.seated && !this.seat.dir).then(() => {
+        if (ch.done || !this.cineLock || ch.shown) return;
+        setCrosshair(false);
+        const back = this.anchorPos('BackDoor');
+        this.lookAim = { get: () => back, k: 3 }; // 열리는 뒤쪽 문 = 도망칠 곳
+      });
     });
   }
   ensureChaseAudio(ch) {
@@ -769,6 +829,7 @@ class Session {
   escape(ch) {
     if (ch.done) return;
     ch.done = true;
+    this.resetCine();
     this.p.move = this.p.look = false;
     this.stopChaseAudio(ch);
     ch.exitIt?.removeOwner(ch);
@@ -783,6 +844,7 @@ class Session {
   async caught(ch) {
     if (ch.done) return;
     ch.done = true;
+    this.resetCine();
     this.p.move = this.p.look = false;
     setCrosshair(false); setObjective(null);
     ch.exitIt?.removeOwner(ch);
@@ -822,14 +884,15 @@ class Session {
     if (!ch.shown) {
       ch.fallback -= dt;
       if (ch.fallback > 0) return;
-      ch.shown = true; ch.released = true; // 깜짝 장면이 취소된 경우의 예비
+      ch.shown = true; ch.released = true; ch.intro = null; // 깜짝 장면이 취소된 경우의 예비
+      this.endChaseIntro();
     }
     this.ensureChaseAudio(ch);
     const c = ch.pos;
     let speed = 0;
     if (ch.released) {
       ch.t += dt;
-      const [s0, s1, ramp] = this.chicken ? [2.6, 4.0, 12] : [3.0, 4.4, 10];
+      const [s0, s1, ramp] = this.chicken ? [CAT_SPEED, CAT_SPEED, 1] : [2.6, 4.4, 9];
       ch.speed = s0 + (s1 - s0) * Math.min(1, ch.t / ramp);
       speed = this.chicken ? ch.speed : ch.speed * (0.8 + 0.3 * Math.abs(Math.sin(this.monster.phase)));
       const cU0 = c.x, cU1 = -c.z;
@@ -845,6 +908,15 @@ class Session {
         const st = Math.min(dist, speed * dt);
         c.x += (dx / dist) * st; c.z -= (dz / dist) * st;
         ch.yaw = lerpAngle(ch.yaw, Math.atan2(-dx, dz), Math.min(1, dt * 8));
+      }
+    } else if (ch.intro) {
+      // 문간까지 걸어 들어온다 (카메라가 따라간다)
+      const dx = ch.intro.x - c.x, dz = ch.intro.z - c.z, d = Math.hypot(dx, dz);
+      if (d < 0.04) { ch.intro = null; ch.trail = [[c.x, -c.z], [pU0, pU1]]; }
+      else {
+        const st = Math.min(d, 2.0 * dt);
+        c.x += (dx / d) * st; c.z += (dz / d) * st; speed = 2.0;
+        ch.yaw = lerpAngle(ch.yaw, Math.atan2(-dx, -dz), Math.min(1, dt * 8));
       }
     } else ch.yaw = lerpAngle(ch.yaw, Math.atan2(-(p.x - c.x), -(p.z - c.z)), Math.min(1, dt * 6));
     if (this.poseChaser(c, ch.yaw, speed, dt)) app.audio.playAt('mon_step_' + (1 + (ch.stepN++ % 3)), c, 0.9, 24, 0.06);
@@ -878,6 +950,8 @@ class Session {
     this.updateCctv(dt);
     this.updatePlayer(dt);
     this.updateChase(dt);
+    const cam = app.camera;
+    if (Math.abs(cam.fov - this.fovTarget) > 0.02) { cam.fov += (this.fovTarget - cam.fov) * (1 - Math.exp(-3.5 * dt)); cam.updateProjectionMatrix(); }
     if (this.vis && !(this.chase && !this.chase.done && this.chase.shown)) this.poseChaser(this.vis.pos, this.vis.yaw, 0, dt);
     if (this.vis || (this.chase && this.chase.shown)) { this.shadowAcc += dt; if (this.shadowAcc >= 1 / 30) { this.shadowAcc = 0; shadow = true; } }
     if (shadow) app.renderer.shadowMap.needsUpdate = true;
@@ -966,6 +1040,14 @@ class Session {
       cam.position.copy(this.seatView.pos).y += Math.sin(seat.breathe * 1.1) * 0.0015;
       cam.quaternion.copy(this.seatView.quat);
       return;
+    }
+    // 카메라 연출: 정해진 곳을 부드럽게 바라본다
+    if (this.lookAim) {
+      const tg = this.lookAim.get();
+      const dx = tg.x - p.pos.x, dy = tg.y - EYE, dz = tg.z - p.pos.z;
+      const k = 1 - Math.exp(-this.lookAim.k * dt);
+      p.yaw = lerpAngle(p.yaw, Math.atan2(-dx, -dz), k);
+      p.pitch += (Math.atan2(dy, Math.hypot(dx, dz)) - p.pitch) * k;
     }
     // 이동
     let fx = 0, fz = 0;
@@ -1295,6 +1377,7 @@ async function endingRoutine(e) {
   if (app.paused) resume();
   s.alive = false; // 진행 중인 이야기·이벤트 중단
   s.cancelScare();
+  s.resetCine();
   s.p.move = s.p.look = false;
   if (s.chase && !s.chase.done) { s.chase.done = true; s.stopChaseAudio(s.chase); }
   setCrosshair(false); setObjective(null); updateBadge();
