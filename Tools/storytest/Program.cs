@@ -70,7 +70,7 @@ static class Program
             if ((n.Record ?? "").Length > 34) warnings.Add($"{n.Id}: 머리줄이 김 ({n.Record.Length}자)");
         }
         var known = new HashSet<string> { "wait", "set", "door", "drawer", "light", "flicker", "hum", "sound", "stopsound", "cctv", "terminal", "glitch",
-            "phone", "checkpoint", "hint", "caption", "monologue", "tension", "fog", "music", "standup", "draft", "monitors", "led" };
+            "phone", "checkpoint", "hint", "caption", "monologue", "tension", "fog", "music", "standup", "draft", "monitors", "led", "scare" };
         foreach (var ev in data.Events.Values)
         {
             foreach (var a in ev.Actions)

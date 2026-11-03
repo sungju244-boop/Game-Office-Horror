@@ -16,9 +16,9 @@ export class Interactable {
 // ---------- 재질 ----------
 const C = (r, g, b) => new THREE.Color(r, g, b);
 export class MatLib {
-  constructor(textures) { this.textures = textures; this.cache = new Map(); }
+  constructor(textures, lang = 'ko') { this.textures = textures; this.lang = lang; this.cache = new Map(); this.made = []; }
   tex(name, worldSize = 0, point = true) {
-    const base = this.textures.get(name);
+    const base = (this.lang === 'en' && this.textures.get(name + '_en')) || this.textures.get(name);
     if (!base) return null;
     const t = base.clone();
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -29,6 +29,7 @@ export class MatLib {
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     t.needsUpdate = true;
+    this.made.push(t);
     return t;
   }
   get(key) {
@@ -76,6 +77,8 @@ export class MatLib {
       case 'cat_white': return this.lit(null, C(0.9, 0.9, 0.88), 1, 0.05);
       case 'cat_pink': return this.lit(null, C(0.85, 0.55, 0.6), 1, 0.1);
       case 'cat_eye': return this.lit(null, C(0.02, 0.02, 0.02), 1, 0.9);
+      case 'monster_skin': return this.lit('monster_skin', C(0.5, 0.48, 0.5), 0, 0.35);
+      case 'monster_bone': return this.lit(null, C(0.32, 0.3, 0.28), 1, 0.2);
       case 'keyboard_top': return this.lit('keyboard', C(1, 1, 1), 0, 0.2);
       case 'tower_front': return this.lit('tower_front', C(1, 1, 1), 0, 0.2);
       case 'notice': return this.lit('notice', C(1, 1, 1), 0, 0.05);
@@ -103,12 +106,14 @@ export class CeilingLight {
   constructor(light, panelMat, base, level, flicker) {
     this.light = light; this.panelMat = panelMat; this.base = base; this.flicker = flicker;
     this.level = level; this.from = level; this.to = level; this.t = 1; this.dur = 1; this.mul = 1; this.timer = 0;
+    // ext: 깜짝 장면의 정전(0) · minLevel/calm: 겁쟁이 모드(항상 밝게, 깜빡임 없음). 이야기의 조명 값(level·flicker)은 그대로 둔다.
+    this.ext = 1; this.minLevel = 0; this.calm = false;
     this.apply();
   }
   fadeTo(level, time) { this.from = this.level; this.to = Math.max(0, level); this.t = 0; this.dur = Math.max(0.01, time); }
   update(dt) {
     if (this.t < 1) { this.t = Math.min(1, this.t + dt / this.dur); this.level = this.from + (this.to - this.from) * this.t; }
-    if (this.flicker && this.level > 0.01) {
+    if (this.flicker && !this.calm && this.level > 0.01) {
       this.timer -= dt;
       if (this.timer <= 0) {
         const off = Math.random() < 0.35;
@@ -119,9 +124,8 @@ export class CeilingLight {
     this.apply();
   }
   apply() {
-    const k = this.level * this.mul;
+    const k = Math.max(this.level, this.minLevel) * this.mul * this.ext;
     this.light.intensity = this.base * k;
-    this.light.visible = k > 0.005;
     if (this.panelMat) this.panelMat.emissiveIntensity = Math.min(1, k) * 1.1;
   }
 }
@@ -166,7 +170,7 @@ export class MonitorScreen {
     this.p += Math.sign(this.target - this.p) * Math.min(Math.abs(this.target - this.p), this.speed * dt);
     this.live.uniforms.power.value = this.p;
     this.live.uniforms.time.value = time;
-    if (this.glow) { this.glow.visible = this.p > 0.02; this.glow.intensity = 0.9 * this.p; }
+    if (this.glow) this.glow.intensity = 0.9 * this.p;
     if (!this.isOn && this.p <= 0.001) this.mesh.material = this.deadMat;
   }
 }
@@ -433,8 +437,6 @@ function buildDoor(F, reg, root, d) {
     door.led = F.box(rd, [0.03, 0.012, 0.006], [0, 0.045, -0.017], 'led_green');
     door.led.userData.dynamic = true; rd.userData.dynamic = true;
     door.ledRed = F.M.get('led_red'); door.ledGreen = F.M.get('led_green');
-    const ll = new THREE.PointLight(0x33ff66, 0.25, 1.0, 2);
-    place(ll, [0, 0.05, -0.08]); rd.add(ll); door.ledLight = ll;
   }
   door.setLocked(door.locked);
   const center = new THREE.Object3D();
@@ -566,8 +568,8 @@ function buildProp(F, reg, parent, p) {
         reg.crtGlow = glow;
       } else if (mode === 'dead' && c) {
         let glow = null;
-        if (['D12', 'D22', 'D13', 'Desk116'].includes(id)) {
-          glow = new THREE.PointLight(0x80b3ff, 0, 2.0, 1.5); glow.visible = false;
+        if (['D12', 'Desk116'].includes(id)) {
+          glow = new THREE.PointLight(0x80b3ff, 0, 2.4, 1.5);
           place(glow, [0, 0.28, -0.5]); c.root.add(glow);
         }
         reg.dead.push(new MonitorScreen(c.screen, F.M.get('screen_dead'), glow));
@@ -769,4 +771,66 @@ export function buildCat(F_or_mats, parent, x, zUnity) {
   for (let k = 0; k <= 8; k++) { const a = k / 8; tail.push([0.04 * Math.sin(a * 3), 0.28 + a * 0.32, -0.22 - a * 0.12 + a * a * 0.1]); }
   F.mesh(v, tubeGeo(tail, 0.03), 'cat_fur', [0, 0, 0], [0, 0, 0]);
   return { root, visual: v };
+}
+
+
+// ---------- 괴물 "회수 담당": 키 2.3m, 깡마른 몸, 깨진 CRT 머리에 얼굴, 등 뒤로 끌리는 케이블 ----------
+// three 좌표로 직접 만든다 (앞 = -z). 관절 그룹(P)을 game.js 가 움직인다.
+export function buildMonster(mats, parent, faceTex) {
+  const skin = mats.get('monster_skin'), bone = mats.get('monster_bone'), dark = mats.get('plastic_dark'), cable = mats.get('cable');
+  const root = new THREE.Group(); root.name = 'Monster'; root.userData.dynamic = true; parent.add(root);
+  const P = {};
+  const mesh = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return m; };
+  const limb = (g, r1, r2, len, mat, up = false) => { const m = mesh(new THREE.CylinderGeometry(r1, r2, len, 7), mat, 0, up ? len / 2 : -len / 2, 0); g.add(m); return m; };
+  const hips = new THREE.Group(); hips.position.y = 1.1; root.add(hips); P.hips = hips;
+  hips.add(mesh(boxGeo(0.3, 0.14, 0.17, 0), skin));
+  for (const s of [-1, 1]) {
+    const thigh = new THREE.Group(); thigh.position.set(0.12 * s, -0.04, 0); hips.add(thigh);
+    limb(thigh, 0.075, 0.055, 0.56, skin);
+    const knee = mesh(new THREE.SphereGeometry(0.06, 6, 5), bone, 0, -0.56, 0); thigh.add(knee);
+    const shin = new THREE.Group(); shin.position.y = -0.56; thigh.add(shin);
+    limb(shin, 0.055, 0.035, 0.5, skin);
+    const foot = mesh(boxGeo(0.08, 0.05, 0.26, 0), skin, 0, -0.52, -0.06); shin.add(foot);
+    P['thigh' + s] = thigh; P['shin' + s] = shin;
+  }
+  const spine = new THREE.Group(); spine.position.y = 0.05; spine.rotation.x = -0.32; hips.add(spine); P.spine = spine;
+  const chest = mesh(new THREE.CylinderGeometry(0.2, 0.12, 0.66, 8), skin, 0, 0.33, 0); chest.scale.z = 0.62; spine.add(chest);
+  for (let k = 0; k < 4; k++) {
+    const rib = mesh(boxGeo(0.34 - k * 0.03, 0.018, 0.2, 0), bone, 0, 0.5 - k * 0.09, -0.02); spine.add(rib);
+  }
+  const spikes = [];
+  for (let k = 0; k < 6; k++) { const v = mesh(boxGeo(0.03, 0.05, 0.04, 0), bone, 0, 0.1 + k * 0.1, 0.11); spine.add(v); spikes.push(v); }
+  for (const s of [-1, 1]) {
+    const sh = new THREE.Group(); sh.position.set(0.22 * s, 0.6, 0); sh.rotation.z = 0.12 * s; spine.add(sh);
+    sh.add(mesh(new THREE.SphereGeometry(0.065, 6, 5), bone));
+    limb(sh, 0.05, 0.035, 0.66, skin);
+    const elbow = new THREE.Group(); elbow.position.y = -0.66; sh.add(elbow);
+    limb(elbow, 0.036, 0.026, 0.62, skin);
+    const hand = new THREE.Group(); hand.position.y = -0.62; elbow.add(hand);
+    hand.add(mesh(boxGeo(0.07, 0.1, 0.03, 0), skin, 0, -0.04, 0));
+    for (let f = 0; f < 4; f++) {
+      const fg = new THREE.Group(); fg.position.set((f - 1.5) * 0.018, -0.09, 0); fg.rotation.z = (f - 1.5) * 0.12; fg.rotation.x = 0.15; hand.add(fg);
+      limb(fg, 0.008, 0.004, 0.17 + (f === 1 || f === 2 ? 0.04 : 0), bone);
+    }
+    P['shoulder' + s] = sh; P['elbow' + s] = elbow;
+  }
+  const neck = new THREE.Group(); neck.position.set(0, 0.66, -0.02); spine.add(neck); P.neck = neck;
+  limb(neck, 0.035, 0.045, 0.2, skin, true);
+  const head = new THREE.Group(); head.position.y = 0.32; neck.add(head); P.head = head;
+  head.add(mesh(boxGeo(0.42, 0.34, 0.1, 0), dark, 0, 0, -0.12));
+  const shell = mesh(frustumGeo([0.38, 0.3], [0.22, 0.18], 0.3, 0.02), dark, 0, 0, 0.08); shell.rotation.y = Math.PI; head.add(shell);
+  // 깨진 화면 (앞 = -z)
+  const face = crtMaterial(faceTex, [1.0, 0.92, 0.9], 1.7, 1);
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.26), face);
+  scr.position.set(0, 0, -0.171); scr.rotation.y = Math.PI; head.add(scr);
+  const crack = mesh(boxGeo(0.02, 0.3, 0.01, 0), mats.get('black'), 0.05, 0, -0.175); crack.rotation.z = 0.5; head.add(crack);
+  // 등 뒤로 끌리는 케이블 (등뼈에서 바닥까지)
+  for (let k = 0; k < 5; k++) {
+    const pts = [];
+    const ox = (k - 2) * 0.06, oz = 0.12;
+    for (let i = 0; i <= 8; i++) { const t = i / 8; pts.push(new THREE.Vector3(ox * (1 + t), 0.6 - t * 1.75 + Math.sin(t * 3 + k) * 0.05, oz + t * t * (0.5 + k * 0.12))); }
+    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.012, 5, false);
+    const c = new THREE.Mesh(g, cable); c.castShadow = true; spine.add(c);
+  }
+  return { root, P, face, screen: scr, phase: 0, jitter: 0, jitterT: 0, head };
 }

@@ -1,19 +1,21 @@
 // CRT 단말기 화면: 캔버스에 글자를 그려 모니터 메시에 직접 표시 (별도 UI 창 없음).
 // 구성: 머리줄 / 큰 대사 / 큰 선택지 2개. 불안한 선택지는 글자·화면이 지지직거린다.
 import { THREE, crtMaterial } from './kit.js';
+import { t } from './i18n.js';
 
 const W = 1024, H = 768;
 const MX = 64, TOP = 96, BOTTOM = 232, BW = W - MX * 2;
 const FONT = "'Galmuri11', 'Malgun Gothic', sans-serif";
 const FONTB = "'Galmuri11B', 'Galmuri11', 'Malgun Gothic', sans-serif";
 const SCR = '░▒▓█#%&?!*/\\|<>=+';
-const PREFIX = {
-  user: ['사용자 › ', '#8ea4b6', '#dce8f2'],
-  ai: ['AI › ', '#7fd8ff', '#c9f1ff'],
-  corp: ['[회사] ', '#e0b468', '#ecd7aa'],
-  me: ['평가자 117 › ', '#a9dca0', '#e0f5da'],
-  sys: ['[시스템] ', '#6d8494', '#a4b8c6'],
+const COLORS = {
+  user: ['spUser', '#8ea4b6', '#dce8f2'],
+  ai: ['spAi', '#7fd8ff', '#c9f1ff'],
+  corp: ['spCorp', '#e0b468', '#ecd7aa'],
+  me: ['spMe', '#a9dca0', '#e0f5da'],
+  sys: ['spSys', '#6d8494', '#a4b8c6'],
 };
+const prefixFor = (who) => { const c = COLORS[who] || COLORS.sys; return [t(c[0]), c[1], c[2]]; };
 
 function scramble(s, amt) {
   if (amt <= 0.001) return s;
@@ -65,7 +67,7 @@ export class Terminal {
   showLine(who, text, glitch) {
     this.hideCenter();
     this.scrollUp = 0;
-    const [prefix, pc, bc] = PREFIX[who] || PREFIX.sys;
+    const [prefix, pc, bc] = prefixFor(who);
     const line = { prefix, pc, bc, text, shown: 0, glitch: glitch || 0, settle: 0, jitter: 0 };
     this.lines.push(line);
     if (this.lines.length > 60) this.lines.shift();
@@ -142,7 +144,11 @@ export class Terminal {
       }
     }
     for (const l of this.lines) if (l.settle > 0) { l.settle -= dt; this.dirty = true; }
-    if (this.arrow) { this.arrowT += dt; this.dirty = true; }
+    if (this.arrow) {
+      const was = Math.sin(this.arrowT * 5) > 0;
+      this.arrowT += dt;
+      if ((Math.sin(this.arrowT * 5) > 0) !== was) this.dirty = true;
+    }
     const c = this.choices;
     if (c) {
       if (c.locked) {
@@ -169,7 +175,8 @@ export class Terminal {
     const flick = 1 - this.glitch * Math.random() * 0.55;
     if (this.light) this.light.intensity = this.lightBase * this.power * flick;
     if (this.glow) this.glow.intensity = this.glowBase * this.power * flick;
-    if (this.dirty) { this.draw(); this.dirty = false; this.tex.needsUpdate = true; }
+    this.sinceDraw = (this.sinceDraw || 0) + dt;
+    if (this.dirty && this.sinceDraw >= 1 / 30) { this.sinceDraw = 0; this.draw(); this.dirty = false; this.tex.needsUpdate = true; }
   }
 
   // ---------- 그리기 ----------

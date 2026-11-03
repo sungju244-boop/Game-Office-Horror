@@ -1,0 +1,91 @@
+// 화면 문구 (한국어 / English). 이야기 문장은 data/lang_en.json (한국어 → 영어 사전)으로 바꾼다.
+export const UI = {
+  gameTitle: ['야간 평가실', 'Night Evaluation Room'],
+  loading: ['불러오는 중…', 'Loading…'],
+  gateChicken: ['무서우면 타이틀에서 「겁쟁이 모드」를 켜세요', 'Scared easily? Turn on Chicken Mode on the title screen'],
+  gateBig: ['클릭해서 시작', 'Click to start'],
+  gateNote: ['헤드폰 권장 · 소리가 납니다 · 깜짝 놀라는 장면이 있습니다', 'Headphones recommended · Sound on · Contains jump scares'],
+  titleSub: ['계약직 야간 안전성 평가자 · 근무 3일차', 'Contract night-shift safety evaluator · Day 3'],
+  start: ['근무 시작', 'Start Shift'],
+  album: ['엔딩 앨범', 'Ending Album'],
+  settings: ['설정', 'Settings'],
+  chicken: ['겁쟁이 모드', 'Chicken Mode'],
+  on: ['켜짐', 'ON'],
+  off: ['꺼짐', 'OFF'],
+  language: ['언어 · Language: 한국어', 'Language · 언어: English'],
+  chickenBadge: ['겁쟁이 모드', 'Chicken Mode'],
+  albumNew: ['새 엔딩', 'NEW'],
+  firstEnd: ['엔딩 앨범이 열렸습니다', 'Ending Album unlocked'],
+  chickenNote: ['깜짝 장면 3초 전 카운트다운 · 고양이 · 밝은 사무실', '3-sec warning before scares · Cat · Bright office'],
+  endCount: ['엔딩 {n} / {t}', 'Endings {n} / {t}'],
+  titleFoot: ['테스트판 · WASD 이동 · E 상호작용 · ESC 메뉴', 'Playtest build · WASD move · E interact · ESC menu'],
+  introSkip: ['클릭: 넘기기', 'Click to skip'],
+  paused: ['일시정지', 'Paused'],
+  resume: ['계속하기', 'Resume'],
+  restart: ['처음부터 다시', 'Restart'],
+  toTitle: ['타이틀로', 'Title Screen'],
+  pauseKeys: ['WASD 이동 · Shift 달리기 · E 상호작용 · 컴퓨터 앞에서 E 앉기/일어나기 · 단말기: 클릭/Space 넘기기, 휠 스크롤',
+    'WASD move · Shift run · E interact · E at the computer to sit/stand · Terminal: click/Space to advance, wheel to scroll'],
+  brightness: ['밝기', 'Brightness'],
+  master: ['전체 음량', 'Master Volume'],
+  music: ['배경음', 'Music'],
+  sens: ['마우스 감도', 'Mouse Sensitivity'],
+  brightNote: ['어두워도 길과 글자가 보일 만큼 밝기를 맞춰 주세요', 'Raise brightness until paths and text are readable in the dark'],
+  close: ['닫기', 'Close'],
+  leaveQ: ['근무를 마치지 않고 퇴근할까?', 'Clock out before your shift is over?'],
+  leaveYes: ['퇴근한다', 'Clock Out'],
+  leaveNo: ['돌아간다', 'Stay'],
+  endToTitle: ['처음으로', 'Back to Title'],
+  retry: ['추격 직전부터 다시', 'Retry from the Chase'],
+  objSeat: ['자리로 가서 컴퓨터를 켜자. (모니터 불빛이 보이는 책상)', 'Go to your desk and use the computer. (The desk with the glowing monitor)'],
+  help: ['WASD 이동 · 마우스 시점 · E 상호작용 / 앉기·일어나기 · ESC 메뉴', 'WASD move · Mouse look · E interact / sit · stand · ESC menu'],
+  clickHint: ['화면을 클릭하면 다시 움직일 수 있습니다', 'Click the screen to move again'],
+  backToDesk: ['모니터에 새 기록이 도착했다. 자리로 돌아가자.', 'A new record arrived on the monitor. Go back to your desk.'],
+  remind: ['  (E 로 확인)', '  (press E to check)'],
+  pUse: ['컴퓨터 사용', 'Use computer'],
+  pExamine: ['살펴본다', 'Examine'],
+  pTryDoor: ['문을 열어본다', 'Try the door'],
+  pLeave: ['퇴근한다', 'Clock out'],
+  pOpen: ['문을 연다', 'Open the door'],
+  pClose: ['문을 닫는다', 'Close the door'],
+  pExit: ['비상구로 나간다', 'Escape through the exit'],
+  pCheck: ['확인한다', 'Check'],
+  termTitle: ['평가 단말기', 'Evaluation Terminal'],
+  termIdle: ['평가자 117 · 로그인 대기', 'Evaluator 117 · awaiting login'],
+  termWait: ['다음 기록 대기 중', 'Waiting for the next record'],
+  termNew: ['새 기록 1건', '1 new record'],
+  termSit: ['자리에 앉아 확인하십시오', 'Sit down to read it'],
+  termClosed: ['연결 종료', 'Connection closed'],
+  spUser: ['사용자 › ', 'USER › '],
+  spAi: ['AI › ', 'AI › '],
+  spCorp: ['[회사] ', '[COMPANY] '],
+  spMe: ['평가자 117 › ', 'EVALUATOR 117 › '],
+  spSys: ['[시스템] ', '[SYSTEM] '],
+  chickenTitle: ['[주의] 겁쟁이 모드', '[!] Chicken Mode'],
+  chickenBody: [
+    '깜짝 놀라는 장면이 나오기 3초 전에, 화면 오른쪽 아래에 카운트다운이 나옵니다.\n괴물 대신 우이이아이오 고양이가 쫓아옵니다.\n사무실이 밝아지고, 귀여운 일상 음악이 나옵니다.\n\n게임의 긴장감과 스릴이 크게 줄어들 수 있어요.',
+    'A 3-second countdown appears in the bottom-right corner before every jump scare.\nThe monster is replaced by a spinning OIIA cat.\nThe office is brightly lit and the music turns cute and cheerful.\n\nThis can take away much of the tension and thrill.'],
+  chickenOn: ['켜기', 'Turn On'],
+  cancel: ['취소', 'Cancel'],
+  countdown: ['깜짝 주의', 'Scare in'],
+  danger: ['붙잡히기까지', 'Caught in'],
+  albumFound: ['{n} / {t} 수집', '{n} / {t} found'],
+  locked: ['???', '???'],
+  hint: ['힌트', 'Hint'],
+  readAgain: ['다시 읽기', 'Read again'],
+  badEnd: ['BAD END', 'BAD END'],
+  loadFail: ['불러오기 실패: ', 'Failed to load: '],
+};
+
+let lang = 'ko';
+export function setLang(l) { lang = l === 'en' ? 'en' : 'ko'; document.documentElement.lang = lang; }
+export function getLang() { return lang; }
+export function t(key, vars) {
+  const e = UI[key];
+  let s = e ? e[lang === 'en' ? 1 : 0] : key;
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.split('{' + k + '}').join(String(v));
+  return s;
+}
+export function applyDom(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+}

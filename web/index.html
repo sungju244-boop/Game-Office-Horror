@@ -10,12 +10,14 @@
     --box: #05101a;
     --hot: #c7ebff;
     --warn: #f2d1d1;
+    --amber: #ffcf66;
+    --amber-ink: #ffe6a8;
     --font: 'Galmuri11', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
     --font-b: 'Galmuri11B', 'Galmuri11', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
   }
   [hidden] { display: none !important; }
-  html, body { height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
-  body { font-family: var(--font); }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); overflow: hidden; }
+  body { font-family: var(--font); word-break: keep-all; overflow-wrap: break-word; }
   #view, #view canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .layer { position: fixed; inset: 0; pointer-events: none; }
   .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
@@ -31,33 +33,87 @@
   #dot { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: rgba(220, 235, 255, 0.75); }
   #ring { position: fixed; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border: 2px solid rgba(220, 235, 255, 0.45); }
   #prompt { position: fixed; left: 0; right: 0; top: calc(50% + 26px); text-align: center; font-size: 22px; color: #e8f2fa; text-shadow: 2px 2px 0 #000; }
-  #mono { position: fixed; left: 0; right: 0; bottom: 120px; text-align: center; font-size: 26px; color: #fff; text-shadow: 2px 2px 0 #000; padding: 0 16px; transition: opacity 0.25s; }
-  #objective { position: fixed; left: 0; right: 0; bottom: 56px; text-align: center; font-size: 20px; color: #b3cfdf; text-shadow: 2px 2px 0 #000; padding: 0 16px; }
+  #mono { position: fixed; left: 0; right: 0; bottom: 120px; text-align: center; font-size: 26px; color: #fff; text-shadow: 2px 2px 0 #000; padding: 0 190px; transition: opacity 0.25s; }
+  #objective { position: fixed; left: 0; right: 0; bottom: 56px; text-align: center; font-size: 20px; color: #b3cfdf; text-shadow: 2px 2px 0 #000; padding: 0 180px; }
   #caption { position: fixed; left: 0; right: 0; top: 54px; text-align: center; font-size: 18px; color: #9db0bd; text-shadow: 2px 2px 0 #000; }
   #help { position: fixed; left: 24px; top: 20px; font-size: 17px; color: #9db0bd; text-shadow: 2px 2px 0 #000; }
   #clickhint { position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%); pointer-events: auto; cursor: pointer;
     font-size: 20px; color: var(--ink); background: rgba(2, 6, 10, 0.75); border: 2px solid var(--line); padding: 10px 18px; }
+  /* 겁쟁이 모드: 깜짝 장면 3초 전 카운트다운 (오른쪽 아래) */
+  #countdown { position: fixed; right: max(24px, env(safe-area-inset-right, 0px)); bottom: 104px; min-width: 130px; padding: 10px 18px 12px; text-align: center;
+    background: rgba(24, 16, 2, 0.86); border: 3px solid var(--amber); color: var(--amber-ink); }
+  #cdlabel { font-size: 16px; letter-spacing: 0.04em; }
+  #cdnum { font-family: var(--font-b); font-size: 64px; line-height: 1; margin-top: 6px; }
+  #cdnum.pop { animation: cdpop 0.35s ease-out; }
+  @keyframes cdpop { from { scale: 1.6; } to { scale: 1; } }
+  #chickenbadge { position: fixed; right: 20px; top: 18px; font-size: 15px; color: var(--amber-ink); background: rgba(24, 16, 2, 0.7); border: 2px solid var(--amber); padding: 4px 10px; }
+  /* 깜짝 장면 (전체 화면 얼굴) */
+  #jumpscare { position: fixed; inset: 0; background: #000; overflow: hidden; pointer-events: none; }
+  #jumpscare img { position: absolute; left: 50%; top: 50%; width: max(100vw, 100vh); height: max(100vw, 100vh); margin: calc(max(100vw, 100vh) / -2) 0 0 calc(max(100vw, 100vh) / -2);
+    image-rendering: pixelated; display: none; }
+  #jumpscare.face img.face, #jumpscare.cat img.cat { display: block; }
+  #jumpscare.face img.face { animation: jsZoom 1s cubic-bezier(.15, .9, .25, 1) both, jsShake 0.08s steps(2) infinite; }
+  #jumpscare.cat { background: #fad6e2; }
+  #jumpscare.cat img.cat { width: min(80vw, 80vh); height: min(80vw, 80vh); margin: calc(min(80vw, 80vh) / -2) 0 0 calc(min(80vw, 80vh) / -2);
+    animation: catPop 0.7s cubic-bezier(.3, 1.7, .5, 1) both, catSpin 0.6s linear infinite; }
+  @keyframes jsZoom { 0% { scale: 0.55; filter: brightness(4) contrast(2.2); } 12% { scale: 1.08; filter: brightness(1.6) contrast(1.8); } 100% { scale: 1.32; filter: brightness(1) contrast(1.4); } }
+  @keyframes jsShake { 0% { translate: -18px 10px; } 50% { translate: 16px -12px; } 100% { translate: -8px 14px; } }
+  @keyframes catPop { 0% { scale: 0.05; } 100% { scale: 1; } }
+  @keyframes catSpin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
   #loading .bar { width: min(420px, 80vw); height: 8px; background: #102030; }
   #loadbar { height: 100%; width: 0; background: var(--line); }
   #gate { cursor: pointer; }
   #gate .big { font-family: var(--font-b); font-size: 30px; }
+  #gate .amber { color: var(--amber-ink); }
   #title { align-items: flex-start; text-align: left; padding-left: max(8vw, 16px); background: linear-gradient(90deg, rgba(1, 3, 6, 0.9) 0%, rgba(1, 3, 6, 0.75) 45%, rgba(1, 3, 6, 0) 75%); }
-  #title .menu { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 30px; }
-  #title .foot { position: fixed; bottom: 24px; left: max(8vw, 16px); right: 24px; display: flex; justify-content: space-between; color: var(--dim); font-size: 15px; }
+  #title .menu { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 24px; }
+  #title .menu button { text-align: left; }
+  #title .foot { position: fixed; bottom: 24px; left: max(8vw, 16px); right: 24px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--dim); font-size: 15px; }
+  #chickennote { color: var(--amber-ink); font-size: 15px; padding-left: 14px; }
+  .newtag { margin-left: 10px; font-size: 14px; color: #04080c; background: var(--amber); padding: 2px 6px; vertical-align: middle; }
   #intro pre { font-family: var(--font); font-size: clamp(18px, 2.2vw, 28px); line-height: 1.6; color: #d0dae2; text-align: left; white-space: pre-wrap; margin: 0; max-width: 900px; }
   #pause .menu, #confirm .row, #ending .menu { display: flex; flex-direction: column; gap: 6px; align-items: center; }
   #settings .rows { display: grid; grid-template-columns: auto minmax(160px, 420px) 60px; gap: 18px 16px; align-items: center; }
   #settings label { font-size: 22px; text-align: right; }
   #settings input[type=range] { width: 100%; accent-color: #8fc3e3; }
-  #confirm .row { flex-direction: row; gap: 28px; flex-wrap: wrap; justify-content: center; }
+  #settings .toggle { justify-self: start; padding: 4px 0; font-size: 22px; color: var(--ink); }
+  #confirm .row, .warnbox .row { flex-direction: row; gap: 28px; flex-wrap: wrap; justify-content: center; display: flex; }
   .bigbox { font-family: var(--font-b); font-size: 34px; color: var(--hot); background: var(--box); border: 4px solid var(--line); padding: 26px 36px; min-width: 260px; }
   .bigbox:hover, .bigbox:focus-visible { background: var(--hot); color: #04080c; }
   .bigbox:hover::before, .bigbox:focus-visible::before { content: ''; }
+  .warnbox { max-width: 700px; border: 3px solid var(--amber); background: #0d0a03; padding: 26px 30px 30px; text-align: left; }
+  .warnhead { font-family: var(--font-b); font-size: 30px; color: var(--amber-ink); margin-bottom: 14px; }
+  #chickenbody { white-space: pre-line; font-size: 19px; line-height: 1.65; color: #efe3c4; margin: 0 0 24px; }
+  .warnbox .bigbox { font-size: 28px; padding: 18px 28px; min-width: 200px; border-color: var(--amber); color: var(--amber-ink); background: #140f04; }
+  .warnbox .bigbox:hover, .warnbox .bigbox:focus-visible { background: var(--amber-ink); color: #140f04; }
+  /* 엔딩 앨범 */
+  #albumgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; width: min(1100px, 100%); max-height: 62vh; overflow-y: auto; text-align: left; }
+  .card { border: 2px solid #23394a; background: #05101a; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-height: 150px; }
+  .card.found { border-color: var(--line); }
+  .card .num { color: #8a96a0; font-size: 15px; letter-spacing: 0.06em; }
+  .card .ttl { font-family: var(--font-b); font-size: 26px; color: #fff; }
+  .card.locked .ttl { color: #4e6272; }
+  .card .desc { color: #b9c6cf; font-size: 15px; line-height: 1.55; }
+  .card .hinttext { color: var(--amber-ink); font-size: 15px; line-height: 1.55; }
+  .card button { font-size: 18px; align-self: flex-start; padding: 4px 0; margin-top: auto; }
   #endnum { color: #8a96a0; font-size: 22px; letter-spacing: 0.08em; min-height: 1.4em; }
   #endtitle { font-family: var(--font-b); font-size: clamp(36px, 5vw, 60px); color: #fff; min-height: 1.3em; }
   #endbody { max-width: 980px; font-size: clamp(17px, 1.9vw, 24px); line-height: 1.7; color: #d4dbe0; }
   #endbody p { margin: 0.2em 0; }
-  @media (prefers-reduced-motion: reduce) { #mono { transition: none; } }
+  #endnote { color: var(--amber-ink); font-size: 17px; min-height: 1.2em; }
+  @media (max-height: 560px) {
+    #title .menu { margin-top: 8px; gap: 0; }
+    #title .menu button { font-size: 20px; padding: 3px 12px; }
+    #title h1 { font-size: 40px; }
+    #title .foot { bottom: 8px; font-size: 13px; }
+    .bigbox { font-size: 26px; padding: 16px 24px; }
+  }
+  @media (max-width: 640px) { #objective { padding: 0 16px; bottom: 150px; } #mono { padding: 0 16px; bottom: 230px; } #settings .rows { grid-template-columns: auto minmax(120px, 1fr) 48px; } }
+  @media (prefers-reduced-motion: reduce) {
+    #mono { transition: none; }
+    #jumpscare img { animation: none !important; }
+    #cdnum.pop { animation: none; }
+  }
 </style>
 
 <div id="view"></div>
@@ -70,63 +126,80 @@
   <div id="help"></div>
   <div id="mono"></div>
   <div id="objective"></div>
-  <div id="clickhint" hidden>화면을 클릭하면 다시 움직일 수 있습니다</div>
+  <div id="chickenbadge" hidden data-i18n="chickenBadge">겁쟁이 모드</div>
+  <div id="countdown" hidden><div id="cdlabel"></div><div id="cdnum"></div></div>
+  <div id="clickhint" hidden data-i18n="clickHint">화면을 클릭하면 다시 움직일 수 있습니다</div>
 </div>
 
+<div id="jumpscare" hidden><img class="face" src="tex/js_face.png" alt=""><img class="cat" src="tex/js_cat.png" alt=""></div>
+
 <div class="screen black" id="loading">
-  <div class="sub">야간 평가실</div>
+  <div class="sub" data-i18n="gameTitle">야간 평가실</div>
   <div class="bar"><div id="loadbar"></div></div>
-  <div class="note" id="loadmsg">불러오는 중…</div>
+  <div class="note" id="loadmsg" data-i18n="loading">불러오는 중…</div>
 </div>
 
 <div class="screen black" id="gate" hidden>
-  <div class="big">클릭해서 시작</div>
-  <div class="note">헤드폰 권장 · 점프스케어 없음 · 소리가 납니다</div>
+  <div class="big" data-i18n="gateBig">클릭해서 시작</div>
+  <div class="note" data-i18n="gateNote">헤드폰 권장 · 소리가 납니다 · 깜짝 놀라는 장면이 있습니다</div>
+  <div class="note amber" data-i18n="gateChicken">무서우면 타이틀에서 「겁쟁이 모드」를 켜세요</div>
 </div>
 
 <div class="screen" id="title" hidden>
-  <h1>야간 평가실</h1>
-  <div class="sub">계약직 야간 안전성 평가자 · 근무 3일차</div>
+  <h1 data-i18n="gameTitle">야간 평가실</h1>
+  <div class="sub" data-i18n="titleSub">계약직 야간 안전성 평가자 · 근무 3일차</div>
   <div class="menu">
-    <button id="start" type="button">근무 시작</button>
-    <button id="titlesettings" type="button">설정</button>
+    <button id="start" type="button" data-i18n="start">근무 시작</button>
+    <button id="albumbtn" type="button" hidden><span data-i18n="album">엔딩 앨범</span><span class="newtag" id="albumnew" data-i18n="albumNew" hidden>새 엔딩</span></button>
+    <button id="chickenbtn" type="button">겁쟁이 모드: 꺼짐</button>
+    <div id="chickennote" hidden></div>
+    <button id="langbtn" type="button">언어 · Language: 한국어</button>
+    <button id="titlesettings" type="button" data-i18n="settings">설정</button>
   </div>
-  <div class="foot"><span id="endcount">엔딩 0 / 6</span><span>테스트판 · WASD 이동 · E 상호작용 · ESC 메뉴</span></div>
+  <div class="foot"><span id="endcount">엔딩 0 / 6</span><span data-i18n="titleFoot">테스트판 · WASD 이동 · E 상호작용 · ESC 메뉴</span></div>
 </div>
 
 <div class="screen black" id="intro" hidden>
   <pre id="introtext"></pre>
-  <div class="note">클릭: 넘기기</div>
+  <div class="note" data-i18n="introSkip">클릭: 넘기기</div>
 </div>
 
 <div class="screen shade" id="pause" hidden>
-  <h1 style="font-size:48px">일시정지</h1>
+  <h1 style="font-size:48px" data-i18n="paused">일시정지</h1>
   <div class="menu">
-    <button id="resume" type="button">계속하기</button>
-    <button id="pausesettings" type="button">설정</button>
-    <button id="restart" type="button">처음부터 다시</button>
-    <button id="totitle" type="button">타이틀로</button>
+    <button id="resume" type="button" data-i18n="resume">계속하기</button>
+    <button id="pausesettings" type="button" data-i18n="settings">설정</button>
+    <button id="restart" type="button" data-i18n="restart">처음부터 다시</button>
+    <button id="totitle" type="button" data-i18n="toTitle">타이틀로</button>
   </div>
-  <div class="note">WASD 이동 · Shift 달리기 · E 상호작용 · 컴퓨터 앞에서 E 앉기/일어나기 · 단말기: 클릭/Space 넘기기, 휠 스크롤</div>
+  <div class="note" data-i18n="pauseKeys">WASD 이동 · Shift 달리기 · E 상호작용</div>
+</div>
+
+<div class="screen" id="album" hidden style="background:rgba(1,3,6,0.96)">
+  <h1 style="font-size:44px" data-i18n="album">엔딩 앨범</h1>
+  <div class="note" id="albumcount"></div>
+  <div id="albumgrid"></div>
+  <button id="closealbum" type="button" data-i18n="close">닫기</button>
 </div>
 
 <div class="screen" id="settings" hidden style="background:rgba(1,3,6,0.94)">
-  <h1 style="font-size:48px">설정</h1>
+  <h1 style="font-size:48px" data-i18n="settings">설정</h1>
   <div class="rows">
-    <label for="set_brightness">밝기</label><input id="set_brightness" type="range" min="0" max="100"><span id="val_brightness"></span>
-    <label for="set_master">전체 음량</label><input id="set_master" type="range" min="0" max="100"><span id="val_master"></span>
-    <label for="set_music">배경음</label><input id="set_music" type="range" min="0" max="100"><span id="val_music"></span>
-    <label for="set_sens">마우스 감도</label><input id="set_sens" type="range" min="0" max="100"><span id="val_sens"></span>
+    <label for="set_brightness" data-i18n="brightness">밝기</label><input id="set_brightness" type="range" min="0" max="100"><span id="val_brightness"></span>
+    <label for="set_master" data-i18n="master">전체 음량</label><input id="set_master" type="range" min="0" max="100"><span id="val_master"></span>
+    <label for="set_music" data-i18n="music">배경음</label><input id="set_music" type="range" min="0" max="100"><span id="val_music"></span>
+    <label for="set_sens" data-i18n="sens">마우스 감도</label><input id="set_sens" type="range" min="0" max="100"><span id="val_sens"></span>
+    <label for="set_chicken" data-i18n="chicken">겁쟁이 모드</label><button id="set_chicken" class="toggle" type="button"></button><span></span>
   </div>
-  <div class="note">어두워도 길과 글자가 보일 만큼 밝기를 맞춰 주세요</div>
-  <button id="closesettings" type="button">닫기</button>
+  <div class="note" data-i18n="brightNote">어두워도 길과 글자가 보일 만큼 밝기를 맞춰 주세요</div>
+  <button id="closesettings" type="button" data-i18n="close">닫기</button>
 </div>
 
 <div class="screen" id="confirm" hidden style="background:rgba(0,0,0,0.75)">
   <div id="confirmq" style="font-family:var(--font-b);font-size:36px"></div>
   <div class="row">
-    <button class="bigbox" id="yes" type="button">퇴근한다</button>
-    <button class="bigbox" id="no" type="button">돌아간다</button>
+    <button class="bigbox" id="yes" type="button" data-i18n="leaveYes">퇴근한다</button>
+    <button class="bigbox" id="no" type="button" data-i18n="leaveNo">돌아간다</button>
   </div>
 </div>
 
@@ -134,9 +207,22 @@
   <div id="endnum"></div>
   <div id="endtitle"></div>
   <div id="endbody"></div>
+  <div id="endnote"></div>
   <div class="menu" id="endbuttons" hidden>
-    <button id="endtotitle" type="button">처음으로</button>
-    <button id="retry" type="button">추격 직전부터 다시</button>
+    <button id="endtotitle" type="button" data-i18n="endToTitle">처음으로</button>
+    <button id="retry" type="button" data-i18n="retry">추격 직전부터 다시</button>
+    <button id="endclose" type="button" data-i18n="close">닫기</button>
+  </div>
+</div>
+
+<div class="screen" id="chickenwarn" hidden style="background:rgba(0,0,0,0.88)">
+  <div class="warnbox" role="dialog" aria-labelledby="chickenhead">
+    <div class="warnhead" id="chickenhead" data-i18n="chickenTitle">[주의] 겁쟁이 모드</div>
+    <p id="chickenbody"></p>
+    <div class="row">
+      <button class="bigbox" id="chickenyes" type="button" data-i18n="chickenOn">켜기</button>
+      <button class="bigbox" id="chickenno" type="button" data-i18n="cancel">취소</button>
+    </div>
   </div>
 </div>
 

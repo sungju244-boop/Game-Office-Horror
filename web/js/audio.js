@@ -8,12 +8,15 @@ export const CLIPS = [
   'sfx_static_1', 'sfx_static_2', 'sfx_static_3', 'sfx_door_creak', 'sfx_door_open', 'sfx_door_close',
   'sfx_door_locked', 'sfx_lock', 'sfx_unlock', 'sfx_drawer', 'sfx_window', 'sfx_phone', 'sfx_radio',
   'sfx_elevator', 'sfx_footsteps_far', 'sfx_power_down', 'sfx_crt_on', 'sfx_crt_off', 'sfx_servo', 'sfx_cat', 'sfx_catch',
+  'mon_breath', 'mon_static', 'mon_step_1', 'mon_step_2', 'mon_step_3', 'mon_drag', 'mon_roar', 'js_shriek', 'js_stinger',
+  'sfx_door_bang', 'sfx_heartbeat', 'mus_hunt', 'mus_cute', 'mus_cute_chase', 'sfx_boing', 'sfx_tick',
 ];
 
 export class AudioSys {
   constructor() {
     this.ctx = null; this.buf = new Map(); this.layers = new Map(); this.loops = new Set();
     this.musicVol = 0.7; this.masterVol = 0.8; this.music = 'none'; this.tension = 0;
+    this.chicken = false; this.duckV = 1; this.duckTarget = 1;
   }
 
   async load(base, onProgress) {
@@ -40,7 +43,8 @@ export class AudioSys {
 
   startLayers() {
     const defs = [['title', 'mus_title', true], ['drone', 'mus_drone', true], ['tension', 'mus_tension', true], ['chase', 'mus_chase', true],
-      ['hum', 'amb_hum', false], ['room', 'amb_room', false]];
+      ['hunt', 'mus_hunt', true], ['cute', 'mus_cute', true], ['cutechase', 'mus_cute_chase', true],
+      ['hum', 'amb_hum', false], ['room', 'amb_room', false], ['heart', 'sfx_heartbeat', false]];
     for (const [id, clip, music] of defs) {
       if (this.layers.has(id)) continue;
       const b = this.buf.get(clip); if (!b) continue;
@@ -55,17 +59,23 @@ export class AudioSys {
 
   setMusic(mode) {
     this.music = mode;
-    for (const id of ['title', 'drone', 'tension', 'chase']) this.target(id, 0, 0.8);
-    if (mode === 'title') this.target('title', 0.55);
+    for (const id of ['title', 'drone', 'tension', 'chase', 'hunt', 'cute', 'cutechase', 'heart']) this.target(id, 0, 0.8);
+    if (mode === 'title') this.target(this.chicken ? 'cute' : 'title', 0.55);
     else if (mode === 'game') this.applyTension();
-    else if (mode === 'chase') { this.target('chase', 0.62, 3); this.target('tension', 0.15); }
-    else if (mode === 'ending') {
+    else if (mode === 'chase') {
+      if (this.chicken) this.target('cutechase', 0.6, 3);
+      else { this.target('hunt', 0.62, 3); this.target('tension', 0.12); this.target('heart', 0.5, 1); }
+    } else if (mode === 'ending') {
       this.target('hum', 0, 2); this.target('room', 0.12, 2);
       this.play2D('mus_ending', 0.6, true);
     }
   }
+  setChicken(on) { this.chicken = !!on; if (this.music !== 'ending') this.setMusic(this.music); }
+  duck(on) { this.duckTarget = on ? 0.12 : 1; }
   setTension(level) { this.tension = Math.max(0, Math.min(3, level)); if (this.music === 'game') this.applyTension(); }
   applyTension() {
+    if (this.chicken) { this.target('cute', 0.45, 0.5); this.target('drone', 0); this.target('tension', 0); return; }
+    this.target('cute', 0, 0.8);
     const drone = [0.42, 0.42, 0.36, 0.26], tens = [0, 0.16, 0.36, 0.55];
     this.target('drone', drone[this.tension], 0.25); this.target('tension', tens[this.tension], 0.25);
   }
@@ -73,9 +83,12 @@ export class AudioSys {
   silenceAll() { for (const l of this.layers.values()) { l.target = 0; l.speed = 2; } }
 
   update(dt) {
-    for (const l of this.layers.values()) {
-      const v = l.g.gain.value, d = l.target - v;
-      l.g.gain.value = v + Math.sign(d) * Math.min(Math.abs(d), l.speed * dt);
+    this.duckV += Math.sign(this.duckTarget - this.duckV) * Math.min(Math.abs(this.duckTarget - this.duckV), dt * (this.duckTarget < this.duckV ? 1.2 : 2.5));
+    if (this.musicBus) this.musicBus.gain.value = this.musicVol * this.duckV;
+    for (const [id, l] of this.layers) {
+      const tgt = (id === 'hum' || id === 'room') ? l.target * this.duckV : l.target;
+      const v = l.g.gain.value, d = tgt - v;
+      l.g.gain.value = v + Math.sign(d) * Math.min(Math.abs(d), Math.max(l.speed, this.duckTarget < 1 ? 1.5 : 0) * dt);
     }
     for (const lp of this.loops) {
       if (lp.follow && lp.panner) {
@@ -105,9 +118,9 @@ export class AudioSys {
     else panner.setPosition(v.x, v.y, v.z);
   }
 
-  makePanner(range, minD = 1) {
+  makePanner(range, minD = 1, hrtf = false) {
     const p = this.ctx.createPanner();
-    p.panningModel = 'HRTF'; p.distanceModel = 'linear'; p.refDistance = minD; p.maxDistance = range; p.rolloffFactor = 1;
+    p.panningModel = hrtf ? 'HRTF' : 'equalpower'; p.distanceModel = 'linear'; p.refDistance = minD; p.maxDistance = range; p.rolloffFactor = 1;
     return p;
   }
 
@@ -128,11 +141,11 @@ export class AudioSys {
     return s;
   }
 
-  loop3D(name, follow, vol, minD, range) {
+  loop3D(name, follow, vol, minD, range, hrtf = false) {
     const b = this.buf.get(name); if (!b || !this.ctx) return null;
     const s = this.ctx.createBufferSource(); s.buffer = b; s.loop = true;
     const g = this.ctx.createGain(); g.gain.value = vol;
-    const p = this.makePanner(range, minD);
+    const p = this.makePanner(range, minD, hrtf);
     s.connect(g); g.connect(p); p.connect(this.sfxBus);
     s.start(0, Math.random() * b.duration * 0.9);
     const lp = { src: s, gain: g, panner: p, follow };

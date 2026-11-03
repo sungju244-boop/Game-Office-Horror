@@ -5,6 +5,34 @@ export function parseJsonc(text) {
   return JSON.parse(clean);
 }
 
+/** 이야기 원본(JSON)의 화면 문장을 사전(한국어 → 다른 언어)으로 바꾼 사본. 조건·변수 이름은 그대로. */
+export function localize(root, dict) {
+  if (!dict) return root;
+  const tr = (s) => (typeof s === 'string' && Object.prototype.hasOwnProperty.call(dict, s) ? dict[s] : s);
+  const r = JSON.parse(JSON.stringify(root));
+  r.intro = (r.intro || []).map(tr);
+  const lines = (arr) => (arr || []).map((l) => (typeof l === 'string' ? tr(l) : { ...l, text: tr(l.text) }));
+  for (const n of r.nodes || []) {
+    if (n.record != null) n.record = tr(n.record);
+    if (n.status != null) n.status = tr(n.status);
+    n.lines = lines(n.lines);
+    for (const c of n.choices || []) {
+      c.text = tr(c.text);
+      if (c.set) c.set = [].concat(c.set).map((op) => {
+        const eq = op.indexOf('=');
+        return eq > 0 && op.slice(0, eq).trim().endsWith('_label') ? op.slice(0, eq + 1) + tr(op.slice(eq + 1)) : op;
+      });
+    }
+    if (n.wait) { n.wait.hint = tr(n.wait.hint); n.wait.screen = tr(n.wait.screen); }
+  }
+  for (const e of r.events || []) for (const a of e.actions || []) for (const k of ['text', 'prompt', 'place']) if (a[k] != null) a[k] = tr(a[k]);
+  for (const e of r.endings || []) { e.title = tr(e.title); e.hint = tr(e.hint); e.lines = lines(e.lines); }
+  for (const k of Object.keys(r.inspects || {})) {
+    r.inspects[k] = r.inspects[k].map((v) => (typeof v === 'string' ? tr(v) : { ...v, text: [].concat(v.text).map(tr) }));
+  }
+  return r;
+}
+
 export class Vars {
   constructor() { this.m = new Map(); }
   get(k) { return k != null && this.m.has(k) ? this.m.get(k) : ''; }
@@ -108,7 +136,7 @@ export class Story {
     this.events = new Map();
     for (const e of root.events || []) this.events.set(e.id, e.actions || []);
     this.endings = new Map();
-    for (const e of root.endings || []) this.endings.set(e.id, { id: e.id, number: e.number, title: e.title, bad: !!e.bad, retryChase: !!e.retryChase, lines: readLines(e.lines) });
+    for (const e of root.endings || []) this.endings.set(e.id, { id: e.id, number: e.number, title: e.title, hint: e.hint || '', bad: !!e.bad, retryChase: !!e.retryChase, lines: readLines(e.lines) });
     this.inspects = new Map(Object.entries(root.inspects || {}));
   }
 

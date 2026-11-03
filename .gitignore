@@ -38,3 +38,5 @@ sysinfo.txt
 
 # 브라우저 테스트판 로컬 확인용 페이지
 /web/_dev.html
+/web/dist/
+__pycache__/

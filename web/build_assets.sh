@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 W=web
 cp Assets/StreamingAssets/Story/story.json $W/data/story.json
+cp Assets/StreamingAssets/Story/lang_en.json $W/data/lang_en.json
 cp Assets/Resources/Data/office_layout.json $W/data/office_layout.json
 for f in Assets/Resources/TexturesRaw/*.bytes; do cp "$f" "$W/tex/$(basename "${f%.bytes}").png"; done
 for f in Assets/Resources/Audio/*.wav; do
