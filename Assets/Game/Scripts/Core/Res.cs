@@ -56,6 +56,8 @@ namespace NightEval
         public static Texture2D Tex(string name, bool point = true)
         {
             if (string.IsNullOrEmpty(name)) return null;
+            // 영어: 글자가 그려진 텍스처는 _en 판이 있으면 그것을 쓴다 (표지판·쪽지·공지 등)
+            if (L.En && !name.EndsWith("_en") && Resources.Load<TextAsset>("TexturesRaw/" + name + "_en") != null) name += "_en";
             if (textures.TryGetValue(name, out var t) && t != null) return t;
             t = Resources.Load<Texture2D>("Textures/" + name);
             if (t == null)
@@ -78,6 +80,9 @@ namespace NightEval
             textures[name] = t;
             return t;
         }
+
+        /// <summary>언어를 바꾸면 글자 텍스처(_en)를 다시 고르도록 캐시를 비운다</summary>
+        public static void ClearTextures() { textures.Clear(); }
 
         public static AudioClip Clip(string name)
         {

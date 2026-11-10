@@ -52,8 +52,19 @@ namespace NightEval.UI
 
         // ---------- 타이틀 ----------
 
-        Button titleContinue, titleChapters;
-        Action continueCb, chaptersCb;
+        Button titleContinue, titleChapters, titleChicken, titleLang;
+        Action continueCb, chaptersCb, chickenCb, langCb;
+
+        /// <summary>겁쟁이 모드·언어 버튼까지 (chicken/lang 콜백이 null 이면 숨김)</summary>
+        public void ShowTitle(int found, int total, Action start, Action continueGame, Action chapters, Action toggleChicken, bool chickenOn, Action toggleLang, Action openSettings, Action quit)
+        {
+            chickenCb = toggleChicken; langCb = toggleLang;
+            ShowTitle(found, total, start, continueGame, chapters, openSettings, quit);
+            titleChicken.gameObject.SetActive(toggleChicken != null);
+            titleLang.gameObject.SetActive(toggleLang != null);
+            titleChicken.GetComponentInChildren<Text>().text = L.T("겁쟁이 모드: ", "Chicken Mode: ") + (chickenOn ? L.T("켜짐", "ON") : L.T("꺼짐", "OFF"));
+            titleLang.GetComponentInChildren<Text>().text = "언어 · Language: " + (L.En ? "English" : "한국어");
+        }
 
         public void ShowTitle(int found, int total, Action start, Action openSettings, Action quit) => ShowTitle(found, total, start, null, null, openSettings, quit);
 
@@ -69,18 +80,22 @@ namespace NightEval.UI
                 UIKit.Panel(shade, new Color(0f, 0.005f, 0.01f, 0.86f));
                 var panel = UIKit.Fixed(rt, "Panel", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(150f, 0f), new Vector2(800f, 700f));
                 UIKit.Label(UIKit.Fixed(panel, "Name", new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, -40), new Vector2(800, 120)), "야간 평가실", bold, 96, new Color(0.88f, 0.94f, 1f), TextAnchor.UpperLeft);
-                UIKit.Label(UIKit.Fixed(panel, "Sub", new Vector2(0, 1), new Vector2(0, 1), new Vector2(4, -170), new Vector2(800, 40)), "시냅스 야간 QA 평가자 117 · 근무 첫날", font, 26, UIKit.TextDim, TextAnchor.UpperLeft);
-                var buttons = UIKit.Fixed(panel, "Buttons", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, -60), new Vector2(520, 420));
-                MenuButton(buttons, "Start", "근무 시작", new Vector2(0, 150), 40, () => start?.Invoke());
-                titleContinue = MenuButton(buttons, "Continue", "이어하기", new Vector2(0, 75), 40, () => continueCb?.Invoke());
-                titleChapters = MenuButton(buttons, "Chapters", "장 선택", new Vector2(0, 0), 40, () => chaptersCb?.Invoke());
-                MenuButton(buttons, "Settings", "설정", new Vector2(0, -75), 40, () => openSettings?.Invoke());
-                MenuButton(buttons, "Quit", "종료", new Vector2(0, -150), 40, () => quit?.Invoke());
+                UIKit.Label(UIKit.Fixed(panel, "Sub", new Vector2(0, 1), new Vector2(0, 1), new Vector2(4, -170), new Vector2(800, 40)), L.T("시냅스 야간 QA 평가자 117 · 근무 첫날", "Synapse Night QA · Evaluator 117 · First shift"), font, 26, UIKit.TextDim, TextAnchor.UpperLeft);
+                var buttons = UIKit.Fixed(panel, "Buttons", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, -60), new Vector2(620, 480));
+                MenuButton(buttons, "Start", L.T("근무 시작", "Start shift"), new Vector2(0, 195), 40, () => start?.Invoke());
+                titleContinue = MenuButton(buttons, "Continue", L.T("이어하기", "Continue"), new Vector2(0, 130), 40, () => continueCb?.Invoke());
+                titleChapters = MenuButton(buttons, "Chapters", L.T("장 선택", "Chapter select"), new Vector2(0, 65), 40, () => chaptersCb?.Invoke());
+                titleChicken = MenuButton(buttons, "Chicken", "", new Vector2(0, 0), 34, () => chickenCb?.Invoke(), TextAnchor.MiddleLeft, 620);
+                titleLang = MenuButton(buttons, "Lang", "", new Vector2(0, -60), 34, () => langCb?.Invoke(), TextAnchor.MiddleLeft, 620);
+                MenuButton(buttons, "Settings", L.T("설정", "Settings"), new Vector2(0, -125), 40, () => openSettings?.Invoke());
+                MenuButton(buttons, "Quit", L.T("종료", "Quit"), new Vector2(0, -190), 40, () => quit?.Invoke());
                 titleEndings = UIKit.Label(UIKit.Fixed(panel, "Endings", new Vector2(0, 0), new Vector2(0, 0), new Vector2(4, 40), new Vector2(800, 40)), "", font, 24, UIKit.TextDim, TextAnchor.LowerLeft);
-                UIKit.Label(UIKit.Fixed(rt, "Note", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-40, 30), new Vector2(900, 40)), "헤드폰 권장 · 깜짝 연출이 있습니다", font, 22, UIKit.TextDim, TextAnchor.LowerRight);
+                UIKit.Label(UIKit.Fixed(rt, "Note", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-40, 30), new Vector2(900, 40)), L.T("헤드폰 권장 · 깜짝 연출이 있습니다", "Headphones recommended · Contains jump scares"), font, 22, UIKit.TextDim, TextAnchor.LowerRight);
             }
-            titleEndings.text = "엔딩 " + found + " / " + total;
+            titleEndings.text = L.T("엔딩 ", "Endings ") + found + " / " + total;
             titleContinue.gameObject.SetActive(continueGame != null);
+            titleChicken.gameObject.SetActive(chickenCb != null);
+            titleLang.gameObject.SetActive(langCb != null);
             titleChapters.gameObject.SetActive(chapters != null);
             title.SetActive(true);
         }
@@ -97,14 +112,14 @@ namespace NightEval.UI
             var rt = UIKit.Stretch(root, "Chapters");
             chapterPanel = rt.gameObject;
             UIKit.Panel(rt, new Color(0f, 0.005f, 0.01f, 0.94f), true);
-            UIKit.Label(UIKit.Fixed(rt, "Head", new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -80), new Vector2(1000, 70)), "장 선택", bold, 56, new Color(0.88f, 0.94f, 1f), TextAnchor.MiddleCenter);
+            UIKit.Label(UIKit.Fixed(rt, "Head", new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -80), new Vector2(1000, 70)), L.T("장 선택", "Chapter select"), bold, 56, new Color(0.88f, 0.94f, 1f), TextAnchor.MiddleCenter);
             var list = UIKit.Fixed(rt, "List", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 20), new Vector2(800, 620));
             for (int i = 0; i < labels.Count; i++)
             {
                 var pick = picks[i];
                 MenuButton(list, "Ch" + i, labels[i], new Vector2(0, 270 - i * 62), 32, () => { HideChapters(); pick?.Invoke(); }, TextAnchor.MiddleCenter, 800);
             }
-            MenuButton(rt, "Back", "돌아가기", new Vector2(0, -400), 32, () => { HideChapters(); back?.Invoke(); }, TextAnchor.MiddleCenter, 400);
+            MenuButton(rt, "Back", L.T("돌아가기", "Back"), new Vector2(0, -400), 32, () => { HideChapters(); back?.Invoke(); }, TextAnchor.MiddleCenter, 400);
         }
 
         public void HideChapters() { if (chapterPanel != null) chapterPanel.SetActive(false); }
@@ -118,13 +133,13 @@ namespace NightEval.UI
                 var rt = UIKit.Stretch(root, "Pause");
                 pause = rt.gameObject;
                 UIKit.Panel(rt, new Color(0, 0.004f, 0.008f, 0.82f), true);
-                UIKit.Label(UIKit.Fixed(rt, "Head", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 250), new Vector2(800, 80)), "일시정지", bold, 56, UIKit.TextMain, TextAnchor.MiddleCenter);
-                MenuButton(rt, "Resume", "계속하기", new Vector2(0, 120), 40, () => resume?.Invoke(), TextAnchor.MiddleCenter);
-                MenuButton(rt, "Settings", "설정", new Vector2(0, 40), 40, () => openSettings?.Invoke(), TextAnchor.MiddleCenter);
-                MenuButton(rt, "Restart", "처음부터 다시", new Vector2(0, -40), 40, () => restart?.Invoke(), TextAnchor.MiddleCenter);
-                MenuButton(rt, "Title", "타이틀로", new Vector2(0, -120), 40, () => toTitle?.Invoke(), TextAnchor.MiddleCenter);
-                MenuButton(rt, "Quit", "게임 종료", new Vector2(0, -200), 40, () => quit?.Invoke(), TextAnchor.MiddleCenter);
-                UIKit.Label(UIKit.Fixed(rt, "Keys", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 50), new Vector2(1600, 40)), "WASD 이동 · Shift 달리기 · 마우스 시점 · E 상호작용 · 단말기: 클릭/Space 넘기기, 휠 스크롤, ESC 일어나기", font, 22, UIKit.TextDim, TextAnchor.MiddleCenter);
+                UIKit.Label(UIKit.Fixed(rt, "Head", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 250), new Vector2(800, 80)), L.T("일시정지", "Paused"), bold, 56, UIKit.TextMain, TextAnchor.MiddleCenter);
+                MenuButton(rt, "Resume", L.T("계속하기", "Resume"), new Vector2(0, 120), 40, () => resume?.Invoke(), TextAnchor.MiddleCenter);
+                MenuButton(rt, "Settings", L.T("설정", "Settings"), new Vector2(0, 40), 40, () => openSettings?.Invoke(), TextAnchor.MiddleCenter);
+                MenuButton(rt, "Restart", L.T("처음부터 다시", "Restart"), new Vector2(0, -40), 40, () => restart?.Invoke(), TextAnchor.MiddleCenter);
+                MenuButton(rt, "Title", L.T("타이틀로", "To title"), new Vector2(0, -120), 40, () => toTitle?.Invoke(), TextAnchor.MiddleCenter);
+                MenuButton(rt, "Quit", L.T("게임 종료", "Quit game"), new Vector2(0, -200), 40, () => quit?.Invoke(), TextAnchor.MiddleCenter);
+                UIKit.Label(UIKit.Fixed(rt, "Keys", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 50), new Vector2(1600, 40)), L.T("WASD 이동 · Shift 달리기 · 마우스 시점 · E 상호작용 · 단말기: 클릭/Space 넘기기, 휠 스크롤, ESC 일어나기", "WASD move · Shift run · Mouse look · E interact · Terminal: click/Space to advance, wheel to scroll, ESC to stand"), font, 22, UIKit.TextDim, TextAnchor.MiddleCenter);
             }
             pause.SetActive(true);
         }
@@ -140,12 +155,12 @@ namespace NightEval.UI
             var rt = UIKit.Stretch(root, "Settings");
             settings = rt.gameObject;
             UIKit.Panel(rt, new Color(0, 0.004f, 0.008f, 0.94f), true);
-            UIKit.Label(UIKit.Fixed(rt, "Head", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 300), new Vector2(800, 80)), "설정", bold, 56, UIKit.TextMain, TextAnchor.MiddleCenter);
-            Row(rt, "밝기", s.Brightness, 170, v => { s.Brightness = v; onChanged?.Invoke(); }, "어두워도 길과 글자가 보일 만큼 맞춰 주세요");
-            Row(rt, "전체 음량", s.MasterVolume, 60, v => { s.MasterVolume = v; onChanged?.Invoke(); }, null);
-            Row(rt, "배경음", s.MusicVolume, -50, v => { s.MusicVolume = v; onChanged?.Invoke(); }, null);
-            Row(rt, "마우스 감도", s.MouseSensitivity, -160, v => { s.MouseSensitivity = v; onChanged?.Invoke(); }, null);
-            MenuButton(rt, "Close", "닫기", new Vector2(0, -290), 40, CloseSettings, TextAnchor.MiddleCenter);
+            UIKit.Label(UIKit.Fixed(rt, "Head", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 300), new Vector2(800, 80)), L.T("설정", "Settings"), bold, 56, UIKit.TextMain, TextAnchor.MiddleCenter);
+            Row(rt, L.T("밝기", "Brightness"), s.Brightness, 170, v => { s.Brightness = v; onChanged?.Invoke(); }, L.T("어두워도 길과 글자가 보일 만큼 맞춰 주세요", "Adjust until paths and text are visible in the dark"));
+            Row(rt, L.T("전체 음량", "Master volume"), s.MasterVolume, 60, v => { s.MasterVolume = v; onChanged?.Invoke(); }, null);
+            Row(rt, L.T("배경음", "Music"), s.MusicVolume, -50, v => { s.MusicVolume = v; onChanged?.Invoke(); }, null);
+            Row(rt, L.T("마우스 감도", "Mouse sensitivity"), s.MouseSensitivity, -160, v => { s.MouseSensitivity = v; onChanged?.Invoke(); }, null);
+            MenuButton(rt, "Close", L.T("닫기", "Close"), new Vector2(0, -290), 40, CloseSettings, TextAnchor.MiddleCenter);
             settings.SetActive(true);
         }
 
@@ -223,7 +238,7 @@ namespace NightEval.UI
                 UIKit.Panel(rt, Color.black, true);
                 introText = UIKit.Label(UIKit.Fixed(rt, "Text", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 30), new Vector2(1300, 700)), "", font, 36, new Color(0.82f, 0.88f, 0.92f), TextAnchor.MiddleLeft);
                 introText.lineSpacing = 1.5f;
-                introSkip = UIKit.Label(UIKit.Fixed(rt, "Skip", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-50, 40), new Vector2(600, 40)), "클릭: 넘기기", font, 22, UIKit.TextDim, TextAnchor.LowerRight);
+                introSkip = UIKit.Label(UIKit.Fixed(rt, "Skip", new Vector2(1, 0), new Vector2(1, 0), new Vector2(-50, 40), new Vector2(600, 40)), L.T("클릭: 넘기기", "Click: advance"), font, 22, UIKit.TextDim, TextAnchor.LowerRight);
             }
             intro.SetActive(true);
             introText.text = "";
@@ -276,10 +291,10 @@ namespace NightEval.UI
                 endBody.lineSpacing = 1.55f;
                 var buttons = UIKit.Fixed(rt, "Buttons", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 120), new Vector2(1200, 140));
                 endButtons = buttons.gameObject;
-                endFromChoice = MenuButton(buttons, "FromChoice", "직전 선택부터", new Vector2(-400, 30), 34, () => fromChoiceCb?.Invoke(), TextAnchor.MiddleCenter, 380);
-                endChapters = MenuButton(buttons, "Chapters", "장 선택", new Vector2(0, 30), 34, () => chaptersEndCb?.Invoke(), TextAnchor.MiddleCenter, 380);
-                MenuButton(buttons, "ToTitle", "처음부터", new Vector2(400, 30), 34, () => toTitleCb?.Invoke(), TextAnchor.MiddleCenter, 380);
-                endRetry = MenuButton(buttons, "Retry", "추격 직전부터 다시", new Vector2(0, -40), 30, () => retryCb?.Invoke(), TextAnchor.MiddleCenter, 600);
+                endFromChoice = MenuButton(buttons, "FromChoice", L.T("직전 선택부터", "From last choice"), new Vector2(-400, 30), 34, () => fromChoiceCb?.Invoke(), TextAnchor.MiddleCenter, 380);
+                endChapters = MenuButton(buttons, "Chapters", L.T("장 선택", "Chapter select"), new Vector2(0, 30), 34, () => chaptersEndCb?.Invoke(), TextAnchor.MiddleCenter, 380);
+                MenuButton(buttons, "ToTitle", L.T("처음부터", "Restart from the beginning"), new Vector2(400, 30), 34, () => toTitleCb?.Invoke(), TextAnchor.MiddleCenter, 380);
+                endRetry = MenuButton(buttons, "Retry", L.T("추격 직전부터 다시", "Retry from before the chase"), new Vector2(0, -40), 30, () => retryCb?.Invoke(), TextAnchor.MiddleCenter, 600);
             }
             toTitleCb = toTitle;
             retryCb = retry;

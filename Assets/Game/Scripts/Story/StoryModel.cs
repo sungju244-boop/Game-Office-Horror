@@ -147,6 +147,17 @@ namespace NightEval.Story
         public readonly List<StoryRule> Rules = new List<StoryRule>();
         public readonly List<string> IntroLines = new List<string>();
 
+        /// <summary>한국어 → 다른 언어 사전 (null 이면 그대로). 화면에 보이는 문장만 바꾸고 조건·변수 이름은 그대로 둔다</summary>
+        static Dictionary<string, string> dict;
+        static string Tr(string s) => s != null && dict != null && dict.TryGetValue(s, out var t) ? t : s;
+        static List<string> TrList(List<string> l) { if (dict == null) return l; for (int i = 0; i < l.Count; i++) l[i] = Tr(l[i]); return l; }
+
+        public static StoryData FromJson(string json, Dictionary<string, string> translate)
+        {
+            dict = translate;
+            try { return FromJson(json); } finally { dict = null; }
+        }
+
         public static StoryData FromJson(string json)
         {
             var root = MiniJson.Parse(StripComments(json)) as Dictionary<string, object>;
@@ -156,7 +167,7 @@ namespace NightEval.Story
                 Start = MiniJson.Str(root, "start", ""),
                 ChaseRetry = MiniJson.Str(root, "chaseRetry", "")
             };
-            data.IntroLines.AddRange(MiniJson.StrList(root, "intro"));
+            data.IntroLines.AddRange(TrList(MiniJson.StrList(root, "intro")));
 
             foreach (object o in MiniJson.List(root, "rules"))
                 if (o is Dictionary<string, object> d)
@@ -168,7 +179,7 @@ namespace NightEval.Story
                 var c = new StoryChapter
                 {
                     Id = MiniJson.Str(d, "id", ""), Index = data.Chapters.Count,
-                    Time = MiniJson.Str(d, "time", ""), Label = MiniJson.Str(d, "label", ""), Title = MiniJson.Str(d, "title", "")
+                    Time = MiniJson.Str(d, "time", ""), Label = Tr(MiniJson.Str(d, "label", "")), Title = Tr(MiniJson.Str(d, "title", ""))
                 };
                 data.Chapters.Add(c);
                 data.ChapterById[c.Id] = c;
@@ -176,7 +187,7 @@ namespace NightEval.Story
 
             var sheets = MiniJson.Obj(root, "sheets");
             if (sheets != null)
-                foreach (var kv in sheets) data.Sheets[kv.Key] = MiniJson.StrList(sheets, kv.Key);
+                foreach (var kv in sheets) data.Sheets[kv.Key] = TrList(MiniJson.StrList(sheets, kv.Key));
 
             foreach (object o in MiniJson.List(root, "nodes"))
             {
@@ -191,6 +202,7 @@ namespace NightEval.Story
                 foreach (object ao in MiniJson.List(d, "actions"))
                 {
                     if (!(ao is Dictionary<string, object> ad)) continue;
+                    foreach (var k in new[] { "text", "prompt" }) if (ad.TryGetValue(k, out var tv) && tv is string ts) ad[k] = Tr(ts);
                     ev.Actions.Add(new StoryAction { Type = MiniJson.Str(ad, "do", ""), Args = ad });
                 }
                 data.Events[ev.Id] = ev;
@@ -202,8 +214,8 @@ namespace NightEval.Story
                 {
                     Id = MiniJson.Str(d, "id", ""),
                     Number = (int)MiniJson.Num(d, "number", 0),
-                    Title = MiniJson.Str(d, "title", ""),
-                    Hint = MiniJson.Str(d, "hint", ""),
+                    Title = Tr(MiniJson.Str(d, "title", "")),
+                    Hint = Tr(MiniJson.Str(d, "hint", "")),
                     Bad = MiniJson.Bool(d, "bad"),
                     RetryChase = MiniJson.Bool(d, "retryChase")
                 };
@@ -221,9 +233,9 @@ namespace NightEval.Story
                         foreach (object vo in list)
                         {
                             if (vo is Dictionary<string, object> vd)
-                                variants.Add(new InspectVariant { Cond = MiniJson.Str(vd, "if", ""), Lines = MiniJson.StrList(vd, "text"), Set = MiniJson.StrList(vd, "set") });
+                                variants.Add(new InspectVariant { Cond = MiniJson.Str(vd, "if", ""), Lines = TrList(MiniJson.StrList(vd, "text")), Set = MiniJson.StrList(vd, "set") });
                             else if (vo is string single)
-                                variants.Add(new InspectVariant { Lines = new List<string> { single } });
+                                variants.Add(new InspectVariant { Lines = new List<string> { Tr(single) } });
                         }
                     }
                     data.Inspects[kv.Key] = variants;
@@ -249,8 +261,8 @@ namespace NightEval.Story
                 Id = MiniJson.Str(d, "id", ""),
                 Chapter = MiniJson.Str(d, "chapter", ""),
                 Clock = MiniJson.Str(d, "clock", ""),
-                Record = MiniJson.Str(d, "record", null),
-                Status = MiniJson.Str(d, "status", null),
+                Record = Tr(MiniJson.Str(d, "record", null)),
+                Status = Tr(MiniJson.Str(d, "status", null)),
                 Clear = MiniJson.Bool(d, "clear"),
                 Save = MiniJson.Bool(d, "save"),
                 Demo = MiniJson.Has(d, "demo") && d["demo"] != null ? (int)MiniJson.Num(d, "demo", -1) : -1,
@@ -271,7 +283,7 @@ namespace NightEval.Story
                 if (!(co is Dictionary<string, object> cd)) continue;
                 var c = new StoryChoice
                 {
-                    Text = MiniJson.Str(cd, "text", ""),
+                    Text = Tr(MiniJson.Str(cd, "text", "")),
                     Cond = MiniJson.Str(cd, "if", ""),
                     Next = MiniJson.Str(cd, "next", ""),
                     Unsettling = MiniJson.Bool(cd, "unsettling"),
@@ -286,8 +298,8 @@ namespace NightEval.Story
             if (t != null)
                 n.Task = new StoryTask
                 {
-                    Flag = MiniJson.Str(t, "flag", ""), Hint = MiniJson.Str(t, "hint", ""),
-                    Screen = MiniJson.Str(t, "screen", ""), NoSit = MiniJson.Bool(t, "noSit")
+                    Flag = MiniJson.Str(t, "flag", ""), Hint = Tr(MiniJson.Str(t, "hint", "")),
+                    Screen = Tr(MiniJson.Str(t, "screen", "")), NoSit = MiniJson.Bool(t, "noSit")
                 };
 
             var m = MiniJson.Obj(d, "maze");
@@ -296,7 +308,7 @@ namespace NightEval.Story
                 n.Maze = new StoryMaze
                 {
                     Map = MiniJson.Str(m, "map", ""), Kind = MiniJson.Str(m, "kind", ""),
-                    Subtle = MiniJson.Str(m, "subtle", ""), Direct = MiniJson.Str(m, "direct", ""),
+                    Subtle = Tr(MiniJson.Str(m, "subtle", "")), Direct = Tr(MiniJson.Str(m, "direct", "")),
                     Drag = MiniJson.Bool(m, "drag"), Done = MiniJson.Str(m, "done", "")
                 };
                 var oc = MiniJson.Obj(m, "outcomes");
@@ -322,14 +334,14 @@ namespace NightEval.Story
             {
                 if (lo is string plain)
                 {
-                    lines.Add(new StoryLine { Who = "sys", Text = plain });
+                    lines.Add(new StoryLine { Who = "sys", Text = Tr(plain) });
                     continue;
                 }
                 if (!(lo is Dictionary<string, object> ld)) continue;
                 lines.Add(new StoryLine
                 {
                     Who = MiniJson.Str(ld, "who", "sys"),
-                    Text = MiniJson.Str(ld, "text", ""),
+                    Text = Tr(MiniJson.Str(ld, "text", "")),
                     Cond = MiniJson.Str(ld, "if", ""),
                     Glitch = MiniJson.Num(ld, "glitch", 0f),
                     Pause = MiniJson.Num(ld, "pause", 0f)

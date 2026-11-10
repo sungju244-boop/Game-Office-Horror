@@ -75,7 +75,7 @@ namespace NightEval.UI
                 countdownText = UIKit.Label(UIKit.Fixed(root, "Countdown", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-50, 50), new Vector2(360, 90)), "", Res.Bold, 40, new Color(1f, 0.83f, 0.45f), TextAnchor.LowerRight);
                 AddShadow(countdownText);
             }
-            countdownText.text = n > 0 ? "깜짝 주의  " + n : "";
+            countdownText.text = n > 0 ? L.T("깜짝 주의  ", "Scare in  ") + n : "";
         }
 
         // ---------- 위에서 내려다보는 CCTV 화면 덧씌움 (REC · 카메라 · 시각 · 비상구 표시) ----------
@@ -105,6 +105,18 @@ namespace NightEval.UI
                 var v = exitViewport.Value; var sz = cctvRoot.rect.size;
                 exitMark.anchoredPosition = new Vector2(Mathf.Clamp(v.x - 0.5f, -0.46f, 0.46f) * sz.x, Mathf.Clamp(v.y - 0.5f, -0.46f, 0.46f) * sz.y);
             }
+        }
+
+        Text badge;
+        public void ChickenBadge(bool on)
+        {
+            if (badge == null)
+            {
+                var root = (RectTransform)help.transform.parent;
+                badge = UIKit.Label(UIKit.Fixed(root, "ChickenBadge", new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-40, -40), new Vector2(320, 44)), "", Res.Bold, 26, new Color(1f, 0.83f, 0.45f), TextAnchor.UpperRight);
+                AddShadow(badge);
+            }
+            badge.text = on ? L.T("겁쟁이 모드", "Chicken Mode") : "";
         }
 
         public void HideJumpscare() { jsT = 0f; if (jsRoot != null) jsRoot.gameObject.SetActive(false); }

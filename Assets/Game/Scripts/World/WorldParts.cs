@@ -71,6 +71,7 @@ namespace NightEval.World
         public float Level { get; private set; }
         public bool Flicker;
         public float Mood = 1f;       // 구하지 못한 사람이 생기면 어두워진다 (0.62)
+        public float MinLevel;        // 겁쟁이 모드: 1 (꺼지지 않는다)
 
         float target, from, t = 1f, duration;
         float flickerTimer, flickerMul = 1f;
@@ -117,7 +118,7 @@ namespace NightEval.World
 
         void Apply()
         {
-            float k = Level * flickerMul * Mood;
+            float k = MinLevel >= 1f ? 1f : Mathf.Max(Level * flickerMul, MinLevel) * Mood;
             if (Light != null)
             {
                 Light.intensity = BaseIntensity * k;

@@ -194,7 +194,7 @@ namespace NightEval.Director
         void UpdateBlink()
         {
             if (!idleBlink) return;
-            const string idle = "평가자 117 · 로그인 대기", title = "시냅스 평가 단말기", here = "▶ 117 · 여기 ◀";
+            string idle = L.T("평가자 117 · 로그인 대기", "Evaluator 117 · awaiting login"), title = L.T("시냅스 평가 단말기", "Synapse Evaluation Terminal"), here = L.T("▶ 117 · 여기 ◀", "▶ 117 · HERE ◀");
             var t = s.Terminal;
             if (s.Vars.Truthy("sat_once") || t.CenterSub != idle) { idleBlink = false; if (t.CenterSub == idle) t.ShowCenter(title, idle); return; }
             string want = Mathf.FloorToInt(elapsed / 0.8f) % 2 == 1 ? here : title;

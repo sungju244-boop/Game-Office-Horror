@@ -230,16 +230,16 @@ namespace NightEval.Terminal
 
         public static string Prefix(string who)
         {
-            if (Green) return who == "guide" ? "<color=#6dff7e>[가이드] </color>" : who == "me" ? "<color=#4dff6a>› </color>" : "<color=#4dff6a>[시스템] </color>";
+            if (Green) return who == "guide" ? "<color=#6dff7e>" + L.T("[가이드] ", "[GUIDE] ") + "</color>" : who == "me" ? "<color=#4dff6a>› </color>" : "<color=#4dff6a>" + L.T("[시스템] ", "[SYSTEM] ") + "</color>";
             switch (who)
             {
-                case "user": return "<color=#8ea4b6>사용자 › </color>";
+                case "user": return "<color=#8ea4b6>" + L.T("사용자 › ", "USER › ") + "</color>";
                 case "ai": return "<color=#7fd8ff>AI › </color>";
-                case "corp": return "<color=#e0b468>[회사] </color>";
-                case "me": return "<color=#a9dca0>평가자 117 › </color>";
-                case "guide": return "<color=#ffd77a>[가이드] </color>";
-                case "radio": return "<color=#9fc7a0>[무전] </color>";
-                default: return "<color=#6d8494>[시스템] </color>";
+                case "corp": return "<color=#e0b468>" + L.T("[회사] ", "[CORP] ") + "</color>";
+                case "me": return "<color=#a9dca0>" + L.T("평가자 117 › ", "EVALUATOR 117 › ") + "</color>";
+                case "guide": return "<color=#ffd77a>" + L.T("[가이드] ", "[GUIDE] ") + "</color>";
+                case "radio": return "<color=#9fc7a0>" + L.T("[무전] ", "[RADIO] ") + "</color>";
+                default: return "<color=#6d8494>" + L.T("[시스템] ", "[SYSTEM] ") + "</color>";
             }
         }
 

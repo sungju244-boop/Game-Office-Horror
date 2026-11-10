@@ -120,8 +120,8 @@ namespace NightEval.Terminal
         Text mazePreviewTitle, mazePreviewBody, mazeStatus, mazeBubble, mazeTimeout;
         readonly List<Text> goalLabels = new List<Text>();
         public Func<string> MazeStatusText;
-        public string MazeLabelStart = "▶ 출발점을 클릭해 시작", MazeLabelGoal = "민트색 길을 따라가 도착점의 코드를 클릭", MazeLabelClick = "클릭: 실행",
-            MazeLabelTimeout = "시간 초과", MazeLabelHidden = "???", MazeLabelDone = "보정 완료";
+        public string MazeLabelStart = L.T("▶ 출발점을 클릭해 시작", "▶ Click the start point to begin. Hover a target to preview what it sends."), MazeLabelGoal = L.T("민트색 길을 따라가 도착점의 코드를 클릭", "Follow the mint path to a target and click it. Touch the black and you restart."), MazeLabelClick = L.T("클릭: 실행", "Click: execute"),
+            MazeLabelTimeout = L.T("시간 초과", "CONNECTION LOST"), MazeLabelHidden = "???", MazeLabelDone = L.T("보정 완료", "Calibrate the intervention console");
         public string PreviewSubtle = "", PreviewDirect = "";
         public bool InMaze => maze != null;
         public MazeState Maze => maze;

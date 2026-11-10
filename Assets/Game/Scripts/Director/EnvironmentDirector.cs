@@ -381,7 +381,7 @@ namespace NightEval.Director
         {
             string target = a.Str("target", "");
             string flag = a.Str("flag", "");
-            string prompt = a.Str("prompt", "확인한다");
+            string prompt = a.Str("prompt", L.T("확인한다", "Check"));
             string inspect = a.Str("inspect", "");
             string place = a.Str("place", "");
             string timer = a.Str("timer", "");
@@ -472,10 +472,10 @@ namespace NightEval.Director
             string flag = a.Str("flag", "");
             var sheet = data.Sheets.TryGetValue(a.Str("sheet", ""), out var sh) ? sh : new List<string>();
             if (it == null) { if (flag.Length > 0) vars.Set(flag, "1"); return; }
-            if (flag.Length > 0) s.Guide.Set("Printer", "프린터", 25f);
+            if (flag.Length > 0) s.Guide.Set("Printer", L.T("프린터", "Printer"), 25f);
             float ready = Time.time + 2.6f;
             var owner = new object();
-            it.Add("출력물을 집는다", () => Time.time >= ready && (flag.Length == 0 || !vars.Truthy(flag)), () =>
+            it.Add(L.T("출력물을 집는다", "Take the printout"), () => Time.time >= ready && (flag.Length == 0 || !vars.Truthy(flag)), () =>
             {
                 it.RemoveOwner(owner);
                 s.Audio.Ui("sfx_check", 0.3f);
@@ -517,17 +517,17 @@ namespace NightEval.Director
                 if (id == "Computer" || id == "PowerStrip") continue;
                 string key = InspectKey(id);
                 if (!data.Inspects.ContainsKey(key)) continue;
-                it.Add("살펴본다", () => true, () => ShowInspect(key), 0, this);
+                it.Add(L.T("살펴본다", "Examine"), () => true, () => ShowInspect(key), 0, this);
             }
 
             // 책상 밑 멀티탭: 한 번은 가이드가 말리고, 두 번째에 뽑힌다 → 엔딩 4 (공허)
             if (w.Interactables.TryGetValue("PowerStrip", out var ps))
-                ps.Add("멀티탭을 뽑는다", () => gm.Phase == GamePhase.Playing && !s.Story.Ending, () =>
+                ps.Add(L.T("멀티탭을 뽑는다", "Unplug the power strip"), () => gm.Phase == GamePhase.Playing && !s.Story.Ending, () =>
                 {
                     if (!vars.Truthy("ps_warned"))
                     {
                         vars.Set("ps_warned", "1");
-                        s.Hud.Monologue(new List<string> { "가이드 › 잠깐만요. 그건 건드리지 마세요.", "(책상 밑 멀티탭. 단말기 전원이 여기 꽂혀 있다.)" });
+                        s.Hud.Monologue(new List<string> { L.T("가이드 › 잠깐만요. 그건 건드리지 마세요.", "GUIDE › Wait. Don't touch that."), L.T("(책상 밑 멀티탭. 단말기 전원이 여기 꽂혀 있다.)", "(A power strip under the desk. The terminal's plugged in here.)") });
                         return;
                     }
                     s.Story.Begin("end4_seq");
@@ -541,18 +541,18 @@ namespace NightEval.Director
                 string id = kv.Key;
 
                 // 잠긴 문: 손잡이를 돌려본다
-                it.Add("문을 열어본다", () => door.Locked && !(id == "ExitDoor" && vars.Truthy("chase")), () =>
+                it.Add(L.T("문을 열어본다", "Try the door"), () => door.Locked && !(id == "ExitDoor" && vars.Truthy("chase")), () =>
                 {
                     s.Audio.PlayAt("sfx_door_locked", door.transform.position + Vector3.up, 0.6f, 0.05f, 10f);
                     ShowInspect(id + "_locked");
                 }, 1, this);
 
-                it.Add("문을 연다", () => !door.Locked && door.Amount < 0.5f && !door.Busy && id != "ExitDoor", () =>
+                it.Add(L.T("문을 연다", "Open the door"), () => !door.Locked && door.Amount < 0.5f && !door.Busy && id != "ExitDoor", () =>
                 {
                     door.SetOpen(1f, 1.3f);
                     s.Audio.PlayAt("sfx_door_open", door.transform.position + Vector3.up, 0.7f, 0.04f, 14f);
                 }, 2, this);
-                it.Add("문을 닫는다", () => !door.Locked && door.Amount >= 0.5f && !door.Busy && !s.Chase.Running && id != "StaffDoor" && id != "ExitDoor", () =>
+                it.Add(L.T("문을 닫는다", "Close the door"), () => !door.Locked && door.Amount >= 0.5f && !door.Busy && !s.Chase.Running && id != "StaffDoor" && id != "ExitDoor", () =>
                 {
                     door.SetOpen(0f, 1.1f);
                     s.Audio.PlayAt("sfx_door_close", door.transform.position + Vector3.up, 0.7f, 0.04f, 14f);

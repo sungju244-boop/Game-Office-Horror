@@ -39,7 +39,8 @@ namespace NightEval
         public GamePhase Phase { get; private set; }
         public bool Paused { get; private set; }
 
-        string layoutJson;
+        string layoutJson, storyJson;
+        readonly Dictionary<string, string> enDict = new Dictionary<string, string>();
         StoryVars chaseSnapshot;
         float titleTime;
 
@@ -54,14 +55,18 @@ namespace NightEval
         void Start()
         {
             // 브라우저판과 같은 데이터: 이야기 v2 + 넓힌 4층 배치 (이전 이야기는 story_legacy.json 에 보관만 한다)
-            string storyJson = Res.ReadStreaming("Story/story.json");
+            storyJson = Res.ReadStreaming("Story/story.json");
+            L.En = Settings.English;
+            var langJson = Res.ReadStreaming("Story/lang_en.json");
+            if (langJson != null && MiniJson.Parse(langJson) is Dictionary<string, object> ld)
+                foreach (var kv in ld) if (kv.Value is string sv) enDict[kv.Key] = sv;
             layoutJson = Res.ReadResourceText("Data/office_layout");
             if (storyJson == null || layoutJson == null)
             {
                 Debug.LogError("[야간 평가실] 데이터 파일이 없어 시작할 수 없습니다.");
                 return;
             }
-            try { Story = StoryData.FromJson(storyJson); }
+            try { Story = StoryData.FromJson(storyJson, L.En ? enDict : null); }
             catch (System.Exception e) { Debug.LogError("[야간 평가실] story.json 오류: " + e.Message); return; }
             DisableForeignSceneObjects();
             BuildSession(null);
@@ -164,6 +169,7 @@ namespace NightEval
             // UI
             s.Hud = s.Root.AddComponent<Hud>();
             s.Hud.Build(s.Root.transform);
+            s.Hud.ChickenBadge(Settings.Chicken);
             s.Interactor.OnPrompt = p => s.Hud.SetPrompt(p);
             s.Menus = s.Root.AddComponent<Menus>();
             s.Menus.Build(s.Root.transform, clip => s.Audio.Ui(clip, 0.35f));
@@ -174,11 +180,11 @@ namespace NightEval
             termGo.transform.position = new Vector3(0f, -400f, 0f);
             s.Terminal = termGo.AddComponent<TerminalScreen>();
             s.Terminal.Init(s.Ctx, s.World.LiveScreenRenderer, s.World.CrtLight, s.World.CrtGlow, Res.Clip);
-            s.Terminal.SetHeader("시냅스 평가 단말기", "평가자 117 · 로그인 대기", s.Vars.Get("clock"));
-            s.Terminal.ShowCenter("시냅스 평가 단말기", "평가자 117 · 로그인 대기");
+            s.Terminal.SetHeader(L.T("시냅스 평가 단말기", "Synapse Evaluation Terminal"), L.T("평가자 117 · 로그인 대기", "Evaluator 117 · awaiting login"), s.Vars.Get("clock"));
+            s.Terminal.ShowCenter(L.T("시냅스 평가 단말기", "Synapse Evaluation Terminal"), L.T("평가자 117 · 로그인 대기", "Evaluator 117 · awaiting login"));
             s.Seat = s.Root.AddComponent<TerminalSeat>();
             s.Seat.Init(s.Player, s.Interactor, cam, s.Terminal, s.World.LiveScreen, s.World.LiveScreenCollider, s.World.Avatar);
-            s.World.Computer.Add("컴퓨터 사용", () => Phase == GamePhase.Playing && !s.Seat.IsSeated && !s.Seat.InTransition, () => s.Seat.Enter(), 0, this);
+            s.World.Computer.Add(L.T("컴퓨터 사용", "Use the computer"), () => Phase == GamePhase.Playing && !s.Seat.IsSeated && !s.Seat.InTransition, () => s.Seat.Enter(), 0, this);
             s.Seat.Seated += () => { s.Hud.SetCrosshair(false); s.Vars.Set("sat_once", "1"); s.Guide?.Clear("Computer"); if (s.Vars.Get("objective_seat") == "1") { s.Vars.Remove("objective_seat"); s.Hud.SetObjective(null); } };
             s.Seat.Stood += () => s.Hud.SetCrosshair(true);
 
@@ -186,8 +192,15 @@ namespace NightEval
 
             // 연출·이야기·추격
             s.Env = s.Root.AddComponent<EnvironmentDirector>();
-            s.Env.baseFog = s.World.Fog;
-            RenderSettings.fogDensity = s.World.Fog;
+            s.Env.baseFog = Settings.Chicken ? 0.02f : s.World.Fog;
+            RenderSettings.fogDensity = s.Env.baseFog;
+            s.Audio.Chicken = Settings.Chicken;
+            if (Settings.Chicken)
+            {
+                // 겁쟁이 모드: 밝은 사무실 (천장등은 꺼지거나 깜빡이지 않는다)
+                RenderSettings.ambientLight = new Color(0.3f, 0.31f, 0.34f);
+                foreach (var l in s.World.Lights("all")) l.MinLevel = 1f;
+            }
             s.Env.Init(this, s, Story);
             s.Env.StartAmbientLoops();
             s.Story = s.Root.AddComponent<StoryDirector>();
@@ -233,7 +246,30 @@ namespace NightEval
             S.Menus.ShowTitle(Settings.EndingsFound(), Settings.EndingCount, () => StartCoroutine(StartGameRoutine()),
                 last != null ? (System.Action)(() => { S.Menus.HideTitle(); ResumeFrom(last); }) : null,
                 anyChapter ? (System.Action)(() => { S.Menus.HideTitle(); OpenChapters(ShowTitleMenu); }) : null,
-                OpenSettings, Quit);
+                ToggleChicken, Settings.Chicken, ToggleLanguage, OpenSettings, Quit);
+        }
+
+        /// <summary>겁쟁이 모드: 켤 때는 무엇이 바뀌는지 먼저 알려 준다</summary>
+        void ToggleChicken()
+        {
+            if (Settings.Chicken) { Settings.Chicken = false; Settings.Save(); BuildSession(null); ShowTitle(); return; }
+            S.Menus.HideTitle();
+            S.Menus.ShowConfirm(L.T("겁쟁이 모드를 켤까요?\n깜짝 연출 3초 전 카운트다운 · 형체 대신 춤추는 휴지 · 밝은 사무실 · 미로 시간 1.5배",
+                                    "Turn on Chicken Mode?\n3-second countdown before scares · a dancing toilet paper instead of monsters · bright office · 1.5× maze time"),
+                L.T("켠다", "Turn on"), L.T("그대로", "Keep off"),
+                () => { Settings.Chicken = true; Settings.Save(); BuildSession(null); ShowTitle(); },
+                () => ShowTitleMenu());
+        }
+
+        /// <summary>언어: 이야기·화면 문구·글자가 그려진 텍스처까지 바꾸고 세션을 새로 만든다</summary>
+        void ToggleLanguage()
+        {
+            Settings.English = !Settings.English; Settings.Save();
+            L.En = Settings.English;
+            Story = StoryData.FromJson(storyJson, L.En ? enDict : null);
+            Res.ClearTextures();
+            BuildSession(null);
+            ShowTitle();
         }
 
         /// <summary>장 선택: 도달한 장만 고를 수 있다</summary>
@@ -279,7 +315,7 @@ namespace NightEval
             bool done = false;
             s.Player.SetControl(false, false);
             s.Audio.SilenceAll();
-            s.Menus.ShowConfirm("야간 평가실이(가) 응답하지 않습니다.\n기다리거나 페이지를 종료할 수 있습니다.", "기다리기", "페이지 종료", () => done = true, () => done = true);
+            s.Menus.ShowConfirm(L.T("야간 평가실이(가) 응답하지 않습니다.\n기다리거나 페이지를 종료할 수 있습니다.", "Night Evaluation Room is not responding.\nYou can wait or close the page."), L.T("기다리기", "Wait"), L.T("페이지 종료", "Close page"), () => done = true, () => done = true);
             while (!done) yield return null;
             s.Audio.SetMusic("game");
             if (!s.Seat.IsSeated) s.Player.SetControl(true, true);
@@ -319,8 +355,8 @@ namespace NightEval
             s.Audio.SetTension(0);
             Phase = GamePhase.Playing;
             s.Vars.Set("objective_seat", "1");
-            s.Hud.SetObjective("117번 자리를 찾아 앉자. (칸막이 구역 A, 모니터가 켜진 책상)");
-            s.Hud.Help("WASD 이동 · 마우스 시점 · E 상호작용 / 앉기 · F 손동작 · ESC 메뉴", 9f);
+            s.Hud.SetObjective(L.T("117번 자리를 찾아 앉자. (칸막이 구역 A, 모니터가 켜진 책상)", "Find desk 117 and sit down. (Cubicle zone A, the desk with the lit monitor)"));
+            s.Hud.Help(L.T("WASD 이동 · 마우스 시점 · E 상호작용 / 앉기 · F 손동작 · ESC 메뉴", "WASD move · Mouse look · E interact / sit · F gesture · ESC menu"), 9f);
             s.Guide.Set("Computer", "117", 0f);
             s.Story.Begin(Story.Start);
         }
@@ -368,7 +404,7 @@ namespace NightEval
             s.Hud.SetCrosshair(true);
             s.Audio.SetMusic("game");
             s.Terminal.ClearBody();
-            s.Terminal.ShowCenter("연결 종료", "");
+            s.Terminal.ShowCenter(L.T("연결 종료", "Disconnected"), "");
             Phase = GamePhase.Playing;
             s.Story.Begin(!string.IsNullOrEmpty(chaseNode) ? chaseNode : string.IsNullOrEmpty(Story.ChaseRetry) ? Story.Start : Story.ChaseRetry);
             StartCoroutine(s.Hud.Fade(0f, 1.2f));

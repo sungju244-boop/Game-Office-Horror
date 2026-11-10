@@ -21,6 +21,7 @@ namespace NightEval.Director
         readonly Dictionary<string, Layer> layers = new Dictionary<string, Layer>();
         AudioSource steps, ui;
         string music = "none";
+        public bool Chicken;
         int tension;
         bool humOn = true;
         readonly System.Random rng = new System.Random();
@@ -33,6 +34,8 @@ namespace NightEval.Director
             AddLayer("tension", "mus_tension", true, true);
             AddLayer("chase", "mus_chase", true, true);
             AddLayer("ending", "mus_ending", true, false);
+            AddLayer("cute", "mus_chicken", true, true);           // 겁쟁이 모드: Scheming Weasel (Kevin MacLeod, CC BY 4.0)
+            AddLayer("cutechase", "mus_chicken_chase", true, true); // 겁쟁이 모드 추격: Dance Till You're Dead (사용자 제공)
             AddLayer("hum", "amb_hum", false, true);
             AddLayer("room", "amb_room", false, true);
             layers["room"].Target = 0.35f;
@@ -68,9 +71,11 @@ namespace NightEval.Director
                     layers["title"].Target = 0.55f;
                     break;
                 case "game":
+                    if (Chicken) { layers["cute"].Target = 0.5f; break; }
                     ApplyTension();
                     break;
                 case "chase":
+                    if (Chicken) { layers["cutechase"].Target = 0.6f; layers["cutechase"].Speed = 3f; break; }
                     layers["chase"].Target = 0.62f;
                     layers["tension"].Target = 0.15f;
                     layers["chase"].Speed = 3f;
@@ -89,7 +94,7 @@ namespace NightEval.Director
         public void SetTension(int level)
         {
             tension = Mathf.Clamp(level, 0, 3);
-            if (music == "game") ApplyTension();
+            if (music == "game" && !Chicken) ApplyTension();
         }
 
         void ApplyTension()

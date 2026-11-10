@@ -222,7 +222,7 @@ namespace NightEval.Director
             if (mon.Glow != null) { mon.Glow.enabled = true; mon.Glow.intensity = 1.2f; }
             Vector3 mp = mon.transform.position + Vector3.up * 1f;
             s.Audio.PlayAt("sfx_crt_on", mp, 0.5f, 0f, 10f);
-            string text = "117… 도와줘";
+            string text = L.T("117… 도와줘", "117… help me");
             for (int i = 1; i <= text.Length && Alive(t); i++)
             {
                 tm.text = text.Substring(0, i) + "_";
@@ -343,7 +343,7 @@ namespace NightEval.Director
             s.Audio.Ui("sfx_click", 0.5f);
             yield return new WaitForSeconds(0.6f);
             s.Audio.Play2D(Chicken ? "tp_ac" : "sfx_keyboard_far", 0.7f);
-            s.Hud.Monologue(new List<string> { "…수화기 너머로 타자 치는 소리가 들린다.", "지금 내 자리에서 나는 소리 같다." });
+            s.Hud.Monologue(new List<string> { L.T("…수화기 너머로 타자 치는 소리가 들린다.", "…Through the receiver: someone typing."), L.T("지금 내 자리에서 나는 소리 같다.", "It sounds like it's coming from my desk. Right now.") });
             yield return new WaitForSeconds(4.5f);
             s.Audio.Ui("sfx_click", 0.5f);
             if (gm.Phase == GamePhase.Playing && !s.Seat.IsSeated) s.Player.SetControl(true, true);

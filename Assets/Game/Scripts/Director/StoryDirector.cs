@@ -171,16 +171,16 @@ namespace NightEval.Director
             if (task.Flag.Length > 0 && !vars.Truthy(task.Flag))
             {
                 s.Terminal.ClearBody(); // 숨은 주석은 다음 기록이 올 때까지 남겨 둔다
-                s.Terminal.ShowCenter(vars.Format(task.Screen.Length > 0 ? task.Screen : "다음 기록 대기 중"), "· · ·");
+                s.Terminal.ShowCenter(vars.Format(task.Screen.Length > 0 ? task.Screen : L.T("다음 기록 대기 중", "Waiting for the next record")), "· · ·");
                 string hint = vars.Format(task.Hint ?? "");
                 if (hint.Length > 0) s.Hud.SetObjective(hint);
-                if (s.Seat.IsSeated) s.Hud.Help("ESC: 일어나기", 8f);
+                if (s.Seat.IsSeated) s.Hud.Help(L.T("ESC: 일어나기", "ESC: stand up"), 8f);
                 float waited = 0f;
                 bool reminded = false;
                 while (!vars.Truthy(task.Flag))
                 {
                     waited += Time.deltaTime;
-                    if (!reminded && waited > 100f && hint.Length > 0) { reminded = true; s.Hud.SetObjective(hint + "  (E 로 확인)"); }
+                    if (!reminded && waited > 100f && hint.Length > 0) { reminded = true; s.Hud.SetObjective(hint + L.T("  (E 로 확인)", "  (press E to check)")); }
                     // 안전장치: 확인 지점을 끝내 찾지 못해도 진행이 영원히 멈추지는 않게
                     if (waited > 320f) { Debug.LogWarning("[야간 평가실] 할 일 시간 초과로 자동 진행: " + task.Flag); vars.Set(task.Flag, "1"); }
                     yield return null;
@@ -189,12 +189,12 @@ namespace NightEval.Director
             }
             if (task.NoSit) { s.Guide.Clear(); yield break; }
             s.Guide.Set("Computer", "117", 12f);
-            s.Terminal.ShowCenter("새 기록 1건", "자리에 앉아 확인하십시오");
+            s.Terminal.ShowCenter(L.T("새 기록 1건", "1 new record"), L.T("자리에 앉아 확인하십시오", "Sit down to read it"));
             s.Terminal.PlaySfx("sfx_beep_new", 0.6f, 0f);
             if (!s.Seat.IsSeated)
             {
                 yield return new WaitForSeconds(2.4f);
-                if (!s.Seat.IsSeated) s.Hud.SetObjective("모니터에 새 기록이 도착했다. 자리로 돌아가자.");
+                if (!s.Seat.IsSeated) s.Hud.SetObjective(L.T("모니터에 새 기록이 도착했다. 자리로 돌아가자.", "A new record arrived on the monitor. Go back to your desk."));
             }
             yield return WaitSeated();
             s.Hud.SetObjective(null);
@@ -208,7 +208,7 @@ namespace NightEval.Director
             yield return WaitSeated();
             while (true)
             {
-                float time = def.Time;
+                float time = def.Time * (s.Figures.Chicken ? 1.5f : 1f);
                 if (m.Kind == "threat") time *= Mathf.Pow(0.75f, vars.GetNum("caught"));
                 var state = new MazeState(def, time, false, m.Drag);
                 state.Sfx = (n, v) => s.Terminal.PlaySfx(n, v, 0.04f);
@@ -217,17 +217,17 @@ namespace NightEval.Director
                 {
                     vars.Add("annoy", 1); vars.Add("hidden_n", 1);
                     int n = Mathf.Min(3, (int)vars.GetNum("hidden_n"));
-                    state.Say("가이드 › " + (n == 1 ? "…그건 누르지 마세요." : n == 2 ? "누가 말하냐고요? 지금은 제가요." : "계속 그러시면 저도 생각이 있어요."), 3.6f);
+                    state.Say(L.T("가이드 › ", "GUIDE › ") + (n == 1 ? L.T("…그건 누르지 마세요.", "…Don't click that.") : n == 2 ? L.T("누가 말하냐고요? 지금은 제가요.", "Who's talking? Right now, I am.") : L.T("계속 그러시면 저도 생각이 있어요.", "Keep doing that and I will have to do something.")), 3.6f);
                     s.Env.ApplyMood();
                 };
                 state.OnDrag = () => { s.Audio.Ui("sfx_whisper", 0.4f); state.Drag(300); };
                 s.Terminal.PreviewSubtle = vars.Format(m.Subtle);
                 s.Terminal.PreviewDirect = vars.Format(m.Direct);
-                s.Terminal.MazeStatusText = () => $"충돌 {(int)vars.GetNum("hits") % 3}/3 · 화면 균열 {(int)vars.GetNum("crack")}단계";
-                s.Terminal.SetHeader("개입 콘솔 · 경로 추적", m.Kind == "calibrate" ? "calibrate()" : "감시 구간을 피해 도착점을 실행하십시오", vars.Get("clock"));
+                s.Terminal.MazeStatusText = () => L.En ? $"Hits {(int)vars.GetNum("hits") % 3}/3 · Screen cracks: {(int)vars.GetNum("crack")}" : $"충돌 {(int)vars.GetNum("hits") % 3}/3 · 화면 균열 {(int)vars.GetNum("crack")}단계";
+                s.Terminal.SetHeader(L.T("개입 콘솔 · 경로 추적", "Intervention Console · Path Trace"), m.Kind == "calibrate" ? "calibrate()" : L.T("감시 구간을 피해 도착점을 실행하십시오", "Avoid the monitored zone and execute a target"), vars.Get("clock"));
                 string res = null;
                 yield return s.Terminal.RunMaze(state, r => res = r);
-                if (m.Kind == "calibrate" && res == "timeout") { yield return s.Terminal.ShowLine("guide", "괜찮아요. 다시 해 볼까요?", 0f); continue; }
+                if (m.Kind == "calibrate" && res == "timeout") { yield return s.Terminal.ShowLine("guide", L.T("괜찮아요. 다시 해 볼까요?", "That's fine. Shall we try again?"), 0f); continue; }
                 s.Terminal.SetHeader(vars.Format(node.Record ?? ""), "", vars.Get("clock"));
                 done(res);
                 yield break;
@@ -256,7 +256,7 @@ namespace NightEval.Director
             {
                 case "freeze":
                     yield return gm.FakeFreeze();
-                    yield return s.Terminal.ShowLine("guide", "아직 안 끝났어요.", 0.2f);
+                    yield return s.Terminal.ShowLine("guide", L.T("아직 안 끝났어요.", "It's not over yet."), 0.2f);
                     done(""); yield break;
                 case "finalWait":
                     foreach (var c in new[] { "05:54", "05:56", "05:58", "05:59" })

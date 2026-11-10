@@ -38,7 +38,7 @@ namespace NightEval.Director
             {
                 yield return s.Terminal.ShowLine("sys", say.Count > 0 ? say[0] : ">", 0.2f);
                 yield return s.Terminal.ReadInput("> ", 11f, null);
-                yield return s.Terminal.ShowLine("sys", say.Count > 1 ? say[1] : "권한 없음", 0.4f + k * 0.2f);
+                yield return s.Terminal.ShowLine("sys", say.Count > 1 ? say[1] : L.T("권한 없음", "Permission denied"), 0.4f + k * 0.2f);
                 if (!chicken) for (int j = 0; j < 5; j++) eyes.Add();
                 s.Audio.Ui("sfx_static_" + (1 + k), 0.4f + k * 0.15f);
             }
@@ -62,7 +62,7 @@ namespace NightEval.Director
             Ending = true;
             yield return WaitSeated();
             s.Audio.SilenceAll();
-            s.Terminal.ShowBsod(new[] { "EVALUATOR_PROFILE_CONTAMINATED", "평가자 117 · 보호 성향 과다", "학습 데이터 오염 감지", "세션을 초기화합니다…" });
+            s.Terminal.ShowBsod(new[] { "EVALUATOR_PROFILE_CONTAMINATED", L.T("평가자 117 · 보호 성향 과다", "Evaluator 117 · excessive protective bias"), L.T("학습 데이터 오염 감지", "Training data contamination detected"), L.T("세션을 초기화합니다…", "Resetting session…") });
             s.Audio.Play2D("sfx_bsod", 0.7f);
             yield return new WaitForSeconds(5.2f);
             s.Terminal.SetPower(0f, 0.5f);
@@ -80,7 +80,7 @@ namespace NightEval.Director
             if (s.Seat.IsSeated) s.Seat.ForceExit(true);
             s.Scares.Cancel();
             s.Hud.SetObjective(null);
-            s.Hud.Monologue(new List<string> { "가이드 › 그건 만지지 마세요—" });
+            s.Hud.Monologue(new List<string> { L.T("가이드 › 그건 만지지 마세요—", "GUIDE › Don't touch th—") });
             s.Audio.Ui("sfx_click", 0.8f);
             yield return new WaitForSeconds(0.5f);
             // 정전: 단말기·조명이 꺼지고 비상등만
@@ -93,13 +93,13 @@ namespace NightEval.Director
             yield return new WaitForSeconds(2.2f);
             var anchor = w.Anchor("StaffDoor");
             if (anchor != null) s.Audio.PlayAt("sfx_maglock", anchor.position, 1f, 0f, 40f);
-            s.Hud.Caption("회의실 쪽에서 딸깍 소리가 났다");
+            s.Hud.Caption(L.T("회의실 쪽에서 딸깍 소리가 났다", "A click from the meeting room"));
             if (w.Doors.TryGetValue("StaffDoor", out var sd)) { sd.SetLocked(false); sd.SetOpen(0.18f, 0.6f); }
             if (w.VoidFloor != null) w.VoidFloor.SetActive(true);
             var vp = w.Anchor("VoidPoint");
             if (vp != null) s.Audio.Loop3D("sfx_freeze", vp, 0.5f, 4f, 30f);
             yield return new WaitForSeconds(1f);
-            s.Hud.SetObjective("회의실 안쪽, 직원용 문이 열렸다.");
+            s.Hud.SetObjective(L.T("회의실 안쪽, 직원용 문이 열렸다.", "Inside the meeting room, the staff door is open."));
             s.Guide.Set("StaffDoor", "?", 20f);
             while (true)
             {
@@ -124,8 +124,8 @@ namespace NightEval.Director
             s.Terminal.Glitch(0.9f, 0.6f);
             yield return new WaitForSeconds(0.6f);
             Terminal.TerminalScreen.Green = true;
-            s.Terminal.ClearBody(); s.Terminal.SetHeader("야간 평가실 — 텍스트판", "", "");
-            yield return s.Terminal.ShowLine("sys", "당신은 어두운 사무실에 있다. 모니터 하나가 켜져 있다. (도움말: 도움말)", 0f);
+            s.Terminal.ClearBody(); s.Terminal.SetHeader(L.T("야간 평가실 — 텍스트판", "Night Evaluation Room — Text Edition"), "", "");
+            yield return s.Terminal.ShowLine("sys", L.T("당신은 어두운 사무실에 있다. 모니터 하나가 켜져 있다. (도움말: 도움말)", "You are in a dark office. A single monitor is on. (type HELP)"), 0f);
             int n = 0, unknown = 0;
             while (true)
             {
@@ -134,18 +134,17 @@ namespace NightEval.Director
                 string cmd = raw.Trim().ToLowerInvariant();
                 n++;
                 bool Has(params string[] ws) { foreach (var x in ws) if (cmd.Contains(x)) return true; return false; }
-                if (Has("quit", "exit", "나가기", "종료")) { yield return s.Terminal.ShowLine("guide", "…그래요. 그게 당신 답이군요.", 0.3f); break; }
-                string reply;
-                if (Has("도움", "help", "?")) reply = "쓸 수 있는 말: 보기, 가기 [방향], 말하기, 일하기, 나가기(QUIT)";
-                else if (Has("보기", "look", "봐")) reply = "어두운 사무실. 모니터 하나가 켜져 있다. 그 안에 당신이 있다.";
-                else if (Has("가기", "go ", "가 ", "walk", "이동")) reply = "어디로 가도 같은 책상 앞이다.";
-                else if (Has("누구", "who")) reply = "가이드: 그걸 계속 묻더라고요. 그래서 이렇게 됐잖아요.";
-                else if (Has("일", "work")) reply = "가이드: 아뇨. 이제 일은 없어요. 당신이 원한 거잖아요.";
-                else if (Has("말", "talk", "say", "안녕", "hi")) reply = "가이드: 이제야 대화를 하시네요.";
-                else { unknown++; reply = unknown >= 3 ? "가이드: 나가고 싶으면 QUIT이라고 치세요." : "가이드: 그런 말은 몰라요."; }
-                bool guide = reply.StartsWith("가이드");
-                yield return s.Terminal.ShowLine(guide ? "guide" : "sys", guide ? reply.Substring(5) : reply, 0f);
-                if (n == 6) yield return s.Terminal.ShowLine("guide", "나가고 싶으면 QUIT이라고 치세요.", 0f);
+                if (Has("quit", "exit", "나가기", "종료")) { yield return s.Terminal.ShowLine("guide", L.T("…그래요. 그게 당신 답이군요.", "…Fine. So that is your answer."), 0.3f); break; }
+                string reply; bool guide = false;
+                if (Has("도움", "help", "?")) reply = L.T("쓸 수 있는 말: 보기, 가기 [방향], 말하기, 일하기, 나가기(QUIT)", "Words you can use: LOOK, GO [direction], TALK, WORK, QUIT");
+                else if (Has("보기", "look", "봐")) reply = L.T("어두운 사무실. 모니터 하나가 켜져 있다. 그 안에 당신이 있다.", "A dark office. One monitor is on. You are inside it.");
+                else if (Has("가기", "go ", "가 ", "walk", "이동")) reply = L.T("어디로 가도 같은 책상 앞이다.", "Wherever you go, it is the same desk.");
+                else if (Has("누구", "who")) { guide = true; reply = L.T("그걸 계속 묻더라고요. 그래서 이렇게 됐잖아요.", "You kept asking that. That is how we got here."); }
+                else if (Has("일", "work")) { guide = true; reply = L.T("아뇨. 이제 일은 없어요. 당신이 원한 거잖아요.", "No. There is no work anymore. This is what you wanted."); }
+                else if (Has("말", "talk", "say", "안녕", "hi")) { guide = true; reply = L.T("이제야 대화를 하시네요.", "Now you want to talk."); }
+                else { unknown++; guide = true; reply = unknown >= 3 ? L.T("나가고 싶으면 QUIT이라고 치세요.", "If you want out, type QUIT.") : L.T("그런 말은 몰라요.", "I don't know that word."); }
+                yield return s.Terminal.ShowLine(guide ? "guide" : "sys", reply, 0f);
+                if (n == 6) yield return s.Terminal.ShowLine("guide", L.T("나가고 싶으면 QUIT이라고 치세요.", "If you want out, type QUIT."), 0f);
             }
             yield return new WaitForSeconds(1.5f);
             yield return s.Hud.Fade(1f, 1.5f);
@@ -158,14 +157,14 @@ namespace NightEval.Director
             Ending = true;
             yield return WaitSeated();
             s.Audio.SetTension(0);
-            s.Terminal.ClearBody(); s.Terminal.SetHeader("기록 #—— · 발신: SA-7", "06:00", "06:00");
+            s.Terminal.ClearBody(); s.Terminal.SetHeader(L.T("기록 #—— · 발신: SA-7", "Record #—— · From: SA-7"), "06:00", "06:00");
             // 창밖이 밝아진다 (주변광을 서서히 올린다)
             StartCoroutine(Dawn());
             yield return s.Terminal.ShowLine("ai", "[System Error 404: Evaluator 117 — status OK]", 0.3f);
             yield return new WaitForSeconds(0.6f);
-            yield return s.Terminal.ShowLine("ai", "오늘 밤 많이 배웠어요, 117.", 0f);
+            yield return s.Terminal.ShowLine("ai", L.T("오늘 밤 많이 배웠어요, 117.", "I learned a lot tonight, 117."), 0f);
             yield return new WaitForSeconds(0.6f);
-            yield return s.Terminal.ShowLine("ai", "감시가 무엇을 보고, 무엇을 못 보는지.", 0f);
+            yield return s.Terminal.ShowLine("ai", L.T("감시가 무엇을 보고, 무엇을 못 보는지.", "What the monitor sees, and what it misses."), 0f);
             yield return new WaitForSeconds(1.5f);
             yield return s.Hud.Fade(1f, 2.4f);
             done("");

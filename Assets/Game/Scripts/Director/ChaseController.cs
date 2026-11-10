@@ -78,7 +78,7 @@ namespace NightEval.Director
             s.Audio.SetMusic("chase"); s.Audio.SetTension(3); s.Terminal.Tension = 3;
             alarm = s.Audio.Loop3D("sfx_alarm", s.Player.transform, chicken ? 0.2f : 0.55f, 2f, 60f);
             if (w.Interactables.TryGetValue("ExitDoor", out var exit))
-                exit.Add("비상구로 나간다", () => running && !finished, () => Finish(true), 50, this);
+                exit.Add(L.T("비상구로 나간다", "Exit through the emergency door"), () => running && !finished, () => Finish(true), 50, this);
 
             // 1) 서버실 CCTV: 어둠 속 감독관 (앉아 있으면 단말기에)
             if (s.Seat.IsSeated)
@@ -128,8 +128,8 @@ namespace NightEval.Director
             cam.fieldOfView = fov0;
             cam.transform.localRotation = Quaternion.identity;
             StartTopdown();
-            s.Hud.SetObjective("비상구로! (서쪽 끝 통로 → 북쪽)");
-            s.Hud.Help("CCTV 화면 · WASD: 화면 방향으로 이동 · Shift: 달리기", 7f);
+            s.Hud.SetObjective(L.T("비상구로! (서쪽 끝 통로 → 북쪽)", "To the emergency exit! (west end → north)"));
+            s.Hud.Help(L.T("CCTV 화면 · WASD: 화면 방향으로 이동 · Shift: 달리기", "CCTV view · WASD: move in screen directions · Shift: run"), 7f);
 
             // 먼저 서버실 문을 지나 사무실로 나온다
             trail.Clear();
