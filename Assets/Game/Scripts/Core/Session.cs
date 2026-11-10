@@ -31,6 +31,7 @@ namespace NightEval
         public ChaseController Chase;
         public GuideDirector Guide;
         public FigureDirector Figures;
+        public ScareDirector Scares;
         public HandView Hand;
         public Hud Hud;
         public Menus Menus;

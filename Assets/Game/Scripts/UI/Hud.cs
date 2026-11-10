@@ -65,6 +65,19 @@ namespace NightEval.UI
             jsBg.color = kind == "tp" ? new Color(0.5f, 0.88f, 0.82f) : Color.black;
             jsRoot.gameObject.SetActive(true);
         }
+        // ---------- 겁쟁이 모드: 깜짝 연출 3초 전 카운트다운 (오른쪽 아래) ----------
+        Text countdownText;
+        public void Countdown(int n)
+        {
+            if (countdownText == null)
+            {
+                var root = (RectTransform)help.transform.parent;
+                countdownText = UIKit.Label(UIKit.Fixed(root, "Countdown", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-50, 50), new Vector2(360, 90)), "", Res.Bold, 40, new Color(1f, 0.83f, 0.45f), TextAnchor.LowerRight);
+                AddShadow(countdownText);
+            }
+            countdownText.text = n > 0 ? "깜짝 주의  " + n : "";
+        }
+
         public void HideJumpscare() { jsT = 0f; if (jsRoot != null) jsRoot.gameObject.SetActive(false); }
 
         void UpdateJumpscare()

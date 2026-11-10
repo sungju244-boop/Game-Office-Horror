@@ -521,6 +521,7 @@ namespace NightEval.World
                     ms.Glow = gl;
                 }
                 reg.DeadMonitors.Add(ms);
+                reg.Monitors[id] = ms;
                 reg.AddInteractable("crt_" + id, crt.Root.AddComponent<Interactable>());
             }
 
@@ -528,7 +529,8 @@ namespace NightEval.World
             {
                 var off = MiniJson.Floats(d, "chairOffset");
                 Vector3 cp = off.Length >= 2 ? new Vector3(off[0], 0, off[1]) : new Vector3(0, 0, -0.62f);
-                pf.Chair(t, cp, MiniJson.Num(d, "chairRot", 0f));
+                var chairGo = pf.Chair(t, cp, MiniJson.Num(d, "chairRot", 0f));
+                if (MiniJson.Bool(d, "chairDynamic") && id.Length > 0) reg.Chairs[id] = chairGo.transform;
                 if (crtMode == "live")
                 {
                     var seat = pf.Node(t, "SeatPoint", cp, 0f);

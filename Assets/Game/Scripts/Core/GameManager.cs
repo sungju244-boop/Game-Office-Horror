@@ -197,6 +197,8 @@ namespace NightEval
             s.Figures = s.Root.AddComponent<FigureDirector>();
             s.Figures.Chicken = Settings.Chicken;
             s.Figures.Init(s);
+            s.Scares = s.Root.AddComponent<ScareDirector>();
+            s.Scares.Init(this, s);
             s.Guide = s.Root.AddComponent<GuideDirector>();
             s.Guide.Init(this, s);
             s.Hand = s.Root.AddComponent<HandView>();
@@ -401,6 +403,7 @@ namespace NightEval
             if (Paused) Resume();
             s.Story.Ending = true;
             s.Story.Stop();
+            s.Scares.Cancel();
             s.Chase.StopChase();
             s.Player.SetControl(false, false);
             s.Interactor.Active = false;

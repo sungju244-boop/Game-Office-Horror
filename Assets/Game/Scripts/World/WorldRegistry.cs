@@ -15,6 +15,8 @@ namespace NightEval.World
         public readonly Dictionary<string, List<CeilingLight>> LightGroups = new Dictionary<string, List<CeilingLight>>();
         public readonly Dictionary<string, DrawerSlide> Drawers = new Dictionary<string, DrawerSlide>();
         public readonly List<MonitorScreen> DeadMonitors = new List<MonitorScreen>();
+        public readonly Dictionary<string, MonitorScreen> Monitors = new Dictionary<string, MonitorScreen>();
+        public readonly Dictionary<string, Transform> Chairs = new Dictionary<string, Transform>();
 
         public Vector3 SpawnPos;
         public float SpawnYaw;

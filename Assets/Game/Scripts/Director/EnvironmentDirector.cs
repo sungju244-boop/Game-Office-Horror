@@ -47,7 +47,7 @@ namespace NightEval.Director
             foreach (var a in ev.Actions)
             {
                 if (!Condition.Eval(a.Str("if", ""), vars)) continue;
-                if (a.Type == "scare") { Debug.Log("[야간 평가실] 깜짝 연출(2단계 예정): " + a.Str("kind", "")); continue; }
+                if (a.Type == "scare") { s.Scares.Run(a.Str("kind", "twitch")); continue; }
                 if (a.Type == "wait")
                 {
                     yield return new WaitForSeconds(a.Num("s", 1f));
