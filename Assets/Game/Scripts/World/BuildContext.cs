@@ -143,6 +143,8 @@ namespace NightEval.World
                 case "led_green": return Emissive(key, null, C(0f, 0.3f, 0f), C(0.15f, 1.8f, 0.35f));
                 case "led_amber": return Emissive(key, null, C(0.3f, 0.2f, 0f), C(1.8f, 0.9f, 0.15f));
             }
+            // 같은 이름의 텍스처가 있으면 그대로 붙인 재질 (표지판·쪽지·서버 랙 등 리부트판에서 늘어난 그림)
+            if (Res.Tex(key) != null) return Lit(key, key, Color.white, 0f, 0.3f);
             Res.Warn("mat:" + key, "정의되지 않은 재질: " + key);
             return Lit(key, null, Color.magenta, 1f, 0f);
         }

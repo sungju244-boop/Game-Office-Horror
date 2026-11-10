@@ -53,10 +53,9 @@ namespace NightEval
 
         void Start()
         {
-            // Unity판은 새 이야기(story.json v2)로 옮기기 전까지 이전 이야기·배치를 그대로 쓴다.
-            // 브라우저판은 Story/story.json + Data/office_layout (리부트판)을 쓴다.
-            string storyJson = Res.ReadStreaming("Story/story_legacy.json");
-            layoutJson = Res.ReadResourceText("Data/office_layout_legacy");
+            // 브라우저판과 같은 데이터: 이야기 v2 + 넓힌 4층 배치 (이전 이야기는 story_legacy.json 에 보관만 한다)
+            string storyJson = Res.ReadStreaming("Story/story.json");
+            layoutJson = Res.ReadResourceText("Data/office_layout");
             if (storyJson == null || layoutJson == null)
             {
                 Debug.LogError("[야간 평가실] 데이터 파일이 없어 시작할 수 없습니다.");
@@ -106,7 +105,7 @@ namespace NightEval
             s.Root = new GameObject("Session");
             s.Root.transform.SetParent(transform, false);
             s.Vars = initialVars != null ? initialVars.Clone() : new StoryVars();
-            if (s.Vars.Get("clock").Length == 0) s.Vars.Set("clock", "00:41");
+            if (s.Vars.Get("clock").Length == 0) s.Vars.Set("clock", "00:00");
             s.Ctx = new BuildContext();
 
             // 렌더 분위기
@@ -175,8 +174,8 @@ namespace NightEval
             termGo.transform.position = new Vector3(0f, -400f, 0f);
             s.Terminal = termGo.AddComponent<TerminalScreen>();
             s.Terminal.Init(s.Ctx, s.World.LiveScreenRenderer, s.World.CrtLight, s.World.CrtGlow, Res.Clip);
-            s.Terminal.SetHeader("평가 단말기 v2.3", "", s.Vars.Get("clock"));
-            s.Terminal.ShowCenter("평가 단말기", "평가자 117 · 로그인 대기");
+            s.Terminal.SetHeader("시냅스 평가 단말기", "평가자 117 · 로그인 대기", s.Vars.Get("clock"));
+            s.Terminal.ShowCenter("시냅스 평가 단말기", "평가자 117 · 로그인 대기");
             s.Seat = s.Root.AddComponent<TerminalSeat>();
             s.Seat.Init(s.Player, s.Interactor, cam, s.Terminal, s.World.LiveScreen, s.World.LiveScreenCollider, s.World.Avatar);
             s.World.Computer.Add("컴퓨터 사용", () => Phase == GamePhase.Playing && !s.Seat.IsSeated && !s.Seat.InTransition, () => s.Seat.Enter(), 0, this);
@@ -187,6 +186,8 @@ namespace NightEval
 
             // 연출·이야기·추격
             s.Env = s.Root.AddComponent<EnvironmentDirector>();
+            s.Env.baseFog = s.World.Fog;
+            RenderSettings.fogDensity = s.World.Fog;
             s.Env.Init(this, s, Story);
             s.Env.StartAmbientLoops();
             s.Story = s.Root.AddComponent<StoryDirector>();
@@ -210,8 +211,66 @@ namespace NightEval
             titleTime = 0f;
             PlaceTitleCamera(0f);
             s.Audio.SetMusic("title");
-            s.Menus.ShowTitle(Settings.EndingsFound(), Settings.EndingCount, () => StartCoroutine(StartGameRoutine()), OpenSettings, Quit);
+            ShowTitleMenu();
             StartCoroutine(s.Hud.Fade(0f, 1.5f));
+        }
+
+        void ShowTitleMenu()
+        {
+            var last = SaveSystem.Last();
+            bool anyChapter = SaveSystem.Reached().Count > 0;
+            S.Menus.ShowTitle(Settings.EndingsFound(), Settings.EndingCount, () => StartCoroutine(StartGameRoutine()),
+                last != null ? (System.Action)(() => { S.Menus.HideTitle(); ResumeFrom(last); }) : null,
+                anyChapter ? (System.Action)(() => { S.Menus.HideTitle(); OpenChapters(ShowTitleMenu); }) : null,
+                OpenSettings, Quit);
+        }
+
+        /// <summary>장 선택: 도달한 장만 고를 수 있다</summary>
+        void OpenChapters(System.Action back)
+        {
+            var labels = new List<string>();
+            var picks = new List<System.Action>();
+            var reached = SaveSystem.Reached();
+            foreach (var ch in Story.Chapters)
+            {
+                if (!reached.Contains(ch.Id)) continue;
+                var snap = SaveSystem.Chapter(ch.Id);
+                if (snap == null) continue;
+                labels.Add(ch.Time + "  ·  " + ch.Label + "  ·  " + ch.Title);
+                picks.Add(() => ResumeFrom(snap));
+            }
+            S.Menus.ShowChapters(labels, picks, back);
+        }
+
+        /// <summary>저장된 지점부터: 세션을 새로 만들고, 117 자리 옆에서 그 노드부터 이어 간다</summary>
+        public void ResumeFrom(SaveSnap snap)
+        {
+            if (snap == null) { Restart(); return; }
+            BuildSession(snap.Vars);
+            var s = S;
+            s.Hud.SetFade(1f);
+            s.Player.SetPose(s.World.DeskStandPos, s.World.DeskStandYaw);
+            s.Player.SetControl(true, true);
+            s.Interactor.Active = true;
+            s.Hud.SetCrosshair(true);
+            s.Audio.SetMusic("game");
+            s.Terminal.ClearBody();
+            Phase = GamePhase.Playing;
+            s.Story.Begin(snap.Node);
+            StartCoroutine(s.Hud.Fade(0f, 1.2f));
+        }
+
+        /// <summary>가짜 "페이지가 응답하지 않습니다" (1단계: 확인 창으로 대신한다)</summary>
+        public IEnumerator FakeFreeze()
+        {
+            var s = S;
+            bool done = false;
+            s.Player.SetControl(false, false);
+            s.Audio.SilenceAll();
+            s.Menus.ShowConfirm("야간 평가실이(가) 응답하지 않습니다.\n기다리거나 페이지를 종료할 수 있습니다.", "기다리기", "페이지 종료", () => done = true, () => done = true);
+            while (!done) yield return null;
+            s.Audio.SetMusic("game");
+            if (!s.Seat.IsSeated) s.Player.SetControl(true, true);
         }
 
         void PlaceTitleCamera(float t)
@@ -248,7 +307,7 @@ namespace NightEval
             s.Audio.SetTension(0);
             Phase = GamePhase.Playing;
             s.Vars.Set("objective_seat", "1");
-            s.Hud.SetObjective("자리로 가서 컴퓨터를 켜자. (모니터 불빛이 보이는 책상)");
+            s.Hud.SetObjective("117번 자리를 찾아 앉자. (칸막이 구역 A, 모니터가 켜진 책상)");
             s.Hud.Help("WASD 이동 · 마우스 시점 · E 상호작용 · ESC 메뉴", 9f);
             s.Story.Begin(Story.Start);
         }
@@ -276,9 +335,11 @@ namespace NightEval
             ShowTitle();
         }
 
-        public void SaveChaseSnapshot()
+        string chaseNode;
+        public void SaveChaseSnapshot(string node)
         {
             chaseSnapshot = S.Vars.Clone();
+            chaseNode = node;
         }
 
         public void RetryChase()
@@ -296,7 +357,7 @@ namespace NightEval
             s.Terminal.ClearBody();
             s.Terminal.ShowCenter("연결 종료", "");
             Phase = GamePhase.Playing;
-            s.Story.Begin(string.IsNullOrEmpty(Story.ChaseRetry) ? Story.Start : Story.ChaseRetry);
+            s.Story.Begin(!string.IsNullOrEmpty(chaseNode) ? chaseNode : string.IsNullOrEmpty(Story.ChaseRetry) ? Story.Start : Story.ChaseRetry);
             StartCoroutine(s.Hud.Fade(0f, 1.2f));
         }
 
@@ -327,6 +388,7 @@ namespace NightEval
             var s = S;
             Phase = GamePhase.Ending;
             if (Paused) Resume();
+            s.Story.Ending = true;
             s.Story.Stop();
             s.Chase.StopChase();
             s.Player.SetControl(false, false);
@@ -342,7 +404,10 @@ namespace NightEval
             s.Audio.SetMusic("ending");
             var lines = new List<string>();
             foreach (var l in StoryLogic.VisibleLines(e.Lines, s.Vars)) lines.Add(s.Vars.Format(l.Text));
-            yield return s.Menus.PlayEnding(e, lines, ToTitle, e.RetryChase ? (System.Action)RetryChase : null);
+            var choice = SaveSystem.Choice();
+            yield return s.Menus.PlayEnding(e, lines, () => { s.Menus.HideEnding(); Restart(); }, e.RetryChase ? (System.Action)RetryChase : null,
+                choice != null ? (System.Action)(() => { s.Menus.HideEnding(); ResumeFrom(choice); }) : null,
+                SaveSystem.Reached().Count > 0 ? (System.Action)(() => OpenChapters(() => { })) : null);
         }
 
         // ---------- 일시정지·설정 ----------
@@ -371,7 +436,7 @@ namespace NightEval
             S.Menus.ShowSettings(Settings, ApplySettings, () =>
             {
                 Settings.Save();
-                if (Phase == GamePhase.Title) S.Menus.ShowTitle(Settings.EndingsFound(), Settings.EndingCount, () => StartCoroutine(StartGameRoutine()), OpenSettings, Quit);
+                if (Phase == GamePhase.Title) ShowTitleMenu();
                 else if (Paused) S.Menus.ShowPause(Resume, OpenSettings, () => { Resume(); Restart(); }, () => { Resume(); ToTitle(); }, Quit);
             });
         }
@@ -402,6 +467,7 @@ namespace NightEval
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 if (s.Menus.SettingsOpen) s.Menus.CloseSettings();
+                else if (s.Menus.ChaptersOpen) { s.Menus.HideChapters(); if (Phase == GamePhase.Title) ShowTitleMenu(); }
                 else if (Phase == GamePhase.Playing)
                 {
                     if (s.Menus.ConfirmOpen) { s.Menus.HideConfirm(); s.Player.SetControl(true, true); s.Interactor.Active = true; }

@@ -14,7 +14,7 @@ namespace NightEval.Terminal
     /// CRT 모니터 화면. 별도 UI 창 없이 렌더텍스처에 글자를 그려 모니터 메시에 직접 표시한다.
     /// 화면 구성: 머리줄(기록·상태·시각) / 큰 대사 / 큰 선택지 2개.
     /// </summary>
-    public sealed class TerminalScreen : MonoBehaviour
+    public sealed partial class TerminalScreen : MonoBehaviour
     {
         public const int W = 1024, H = 768;
         const int BodyFont = 36, HeaderFont = 24, CenterFont = 48, SubFont = 24;
@@ -58,8 +58,10 @@ namespace NightEval.Terminal
             public TextJitter Jitter;
             public string Text;
             public bool Unsettling;
+            public bool Disabled;
         }
-        readonly ChoiceBox[] boxes = new ChoiceBox[2];
+        const int MaxChoices = 5; // 별점(1~5)까지
+        readonly ChoiceBox[] boxes = new ChoiceBox[MaxChoices];
         Action<int> choiceCb;
         bool choiceLocked;
         int hover = -1;
@@ -160,7 +162,7 @@ namespace NightEval.Terminal
             centerMain = UIKit.Label(center, "", bold, CenterFont, BoxIdleText, TextAnchor.MiddleCenter);
             centerSub = UIKit.Label(UIKit.Fixed(rootRt, "CenterSub", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -90f), new Vector2(BodyWidth, 90f)), "", font, SubFont, Dim, TextAnchor.UpperCenter);
 
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < MaxChoices; i++)
             {
                 var box = new ChoiceBox();
                 float x = (i == 0 ? -1f : 1f) * 232f;
@@ -228,6 +230,8 @@ namespace NightEval.Terminal
                 case "ai": return "<color=#7fd8ff>AI › </color>";
                 case "corp": return "<color=#e0b468>[회사] </color>";
                 case "me": return "<color=#a9dca0>평가자 117 › </color>";
+                case "guide": return "<color=#ffd77a>[가이드] </color>";
+                case "radio": return "<color=#9fc7a0>[무전] </color>";
                 default: return "<color=#6d8494>[시스템] </color>";
             }
         }
@@ -240,6 +244,8 @@ namespace NightEval.Terminal
                 case "ai": return "#c9f1ff";
                 case "corp": return "#ecd7aa";
                 case "me": return "#e0f5da";
+                case "guide": return "#fff0c4";
+                case "radio": return "#d6efd6";
                 default: return "#a4b8c6";
             }
         }
@@ -401,22 +407,31 @@ namespace NightEval.Terminal
 
         // ---------- 선택지 ----------
 
-        public void ShowChoices(IList<string> labels, IList<bool> unsettling, Action<int> onPick)
+        public void ShowChoices(IList<string> labels, IList<bool> unsettling, Action<int> onPick) => ShowChoices(labels, unsettling, null, onPick);
+
+        /// <summary>선택지 1~5개. 2개까지는 큰 상자, 3개 이상(별점)은 한 줄에 작은 상자. disabled 는 흐리게, 누를 수 없음.</summary>
+        public void ShowChoices(IList<string> labels, IList<bool> unsettling, IList<bool> disabled, Action<int> onPick)
         {
             arrow.enabled = false;
             choiceCb = onPick;
             choiceLocked = false;
             hover = -1;
+            int n = Mathf.Min(labels.Count, boxes.Length);
+            float bw = n <= 2 ? 432f : (BodyWidth - (n - 1) * 16f) / n, gap = n <= 2 ? 32f : 16f;
+            float total = n * bw + (n - 1) * gap;
             for (int i = 0; i < boxes.Length; i++)
             {
                 var b = boxes[i];
-                bool on = i < labels.Count;
+                bool on = i < n;
                 b.Rect.gameObject.SetActive(on);
                 if (!on) continue;
+                b.Rect.sizeDelta = new Vector2(bw, n <= 2 ? 136f : 110f);
+                b.Rect.anchoredPosition = new Vector2(-total / 2f + bw / 2f + i * (bw + gap), 112f);
                 b.Text = labels[i];
                 b.Unsettling = unsettling != null && i < unsettling.Count && unsettling[i];
+                b.Disabled = disabled != null && i < disabled.Count && disabled[i];
                 b.Label.text = b.Text;
-                SetBoxStyle(b, false, 1f);
+                SetBoxStyle(b, false, b.Disabled ? 0.3f : 1f);
             }
             PlaySfx("sfx_beep", 0.35f, 0f);
         }
@@ -448,7 +463,7 @@ namespace NightEval.Terminal
             for (int i = 0; i < boxes.Length; i++)
             {
                 var b = boxes[i];
-                if (!b.Rect.gameObject.activeSelf) continue;
+                if (!b.Rect.gameObject.activeSelf || b.Disabled) continue;
                 if (RectTransformUtility.RectangleContainsScreenPoint(b.Rect, rtPoint.Value, RtCam)) return i;
             }
             return -1;
@@ -456,6 +471,8 @@ namespace NightEval.Terminal
 
         public void UpdatePointer(Vector2? rtPoint)
         {
+            if (maze != null) { MazePointer(rtPoint); return; }
+            if (rtPoint.HasValue) HiddenPointer(rtPoint.Value);
             if (choiceCb == null || choiceLocked) return;
             int h = HitBox(rtPoint);
             if (h != hover)
@@ -486,6 +503,8 @@ namespace NightEval.Terminal
         public void Click(Vector2? rtPoint)
         {
             if (!AcceptInput) return;
+            if (maze != null) { maze.Click(); return; }
+            if (cardActive) return;
             if (choiceCb != null)
             {
                 if (choiceLocked) return;
@@ -504,7 +523,7 @@ namespace NightEval.Terminal
             var b = boxes[index];
             PlaySfx("sfx_ui_select", 0.45f, 0f);
             for (int i = 0; i < boxes.Length; i++)
-                if (i != index && boxes[i].Rect.gameObject.activeSelf) SetBoxStyle(boxes[i], false, 0.25f);
+                if (i != index && boxes[i].Rect.gameObject.activeSelf) SetBoxStyle(boxes[i], false, boxes[i].Disabled ? 0.15f : 0.25f);
             if (b.Unsettling)
             {
                 Glitch(0.85f, 0.7f);
@@ -563,6 +582,7 @@ namespace NightEval.Terminal
         void Update()
         {
             float dt = Time.deltaTime;
+            UpdateExtras(dt);
             if (glitchHold > 0f) glitchHold -= dt;
             else glitch = Mathf.MoveTowards(glitch, Tension * 0.02f, dt * 2.2f);
 

@@ -12,6 +12,7 @@ namespace NightEval.Director
     /// </summary>
     public sealed class EnvironmentDirector : MonoBehaviour
     {
+        // 브라우저판과 같은 동작 이름 (story.json v2). scare(깜짝 연출)는 2단계에서 옮긴다.
         GameManager gm;
         Session s;
         StoryData data;
@@ -45,6 +46,8 @@ namespace NightEval.Director
         {
             foreach (var a in ev.Actions)
             {
+                if (!Condition.Eval(a.Str("if", ""), vars)) continue;
+                if (a.Type == "scare") { Debug.Log("[야간 평가실] 깜짝 연출(2단계 예정): " + a.Str("kind", "")); continue; }
                 if (a.Type == "wait")
                 {
                     yield return new WaitForSeconds(a.Num("s", 1f));
@@ -163,6 +166,15 @@ namespace NightEval.Director
                 case "led":
                     if (w.Doors.TryGetValue(target, out var d2)) d2.SetLocked(a.Bool("red", d2.Locked));
                     break;
+                case "mood":
+                    ApplyMood();
+                    break;
+                case "print":
+                    Print(a);
+                    break;
+                case "projector":
+                    Projector(a.Bool("on"));
+                    break;
                 default:
                     Debug.LogWarning("[야간 평가실] 알 수 없는 동작: " + a.Type);
                     break;
@@ -260,6 +272,27 @@ namespace NightEval.Director
 
         void Cctv(StoryAction a)
         {
+            // 여러 대 중 대상(CAM1~3)으로 화면을 옮긴다. 이미 만든 화면용 카메라는 그대로 옮겨 단다
+            string tgt = a.Str("target", "");
+            if (tgt.Length > 0 && w.Cctvs.TryGetValue(tgt, out var tc) && tc != w.Cctv)
+            {
+                var old = w.Cctv;
+                w.Cctv = tc;
+                if (old != null)
+                {
+                    old.SetLed(false);
+                    if (old.FeedCamera != null)
+                    {
+                        old.FeedCamera.transform.SetParent(tc.Head, false);
+                        old.FeedCamera.transform.localPosition = new Vector3(0, 0, 0.15f);
+                        old.FeedCamera.transform.localRotation = Quaternion.identity;
+                        tc.FeedCamera = old.FeedCamera; tc.FeedTexture = old.FeedTexture;
+                        old.FeedCamera = null; old.FeedTexture = null;
+                        tc.StartFeed();
+                    }
+                }
+                tc.SetLed(true);
+            }
             var cam = w.Cctv;
             if (cam == null) return;
             if (a.Has("led")) cam.SetLed(a.Bool("led"));
@@ -345,6 +378,18 @@ namespace NightEval.Director
             string timer = a.Str("timer", "");
             string then = a.Str("then", "");
             float created = Time.time;
+            if (flag.Length > 0 && vars.Truthy(flag)) return;
+            if (a.Has("zone"))
+            {
+                var z = MiniJson.List(a.Args, "zone");
+                if (z.Count >= 4)
+                    zones.Add(new Zone
+                    {
+                        X0 = System.Convert.ToSingle(z[0]), Z0 = System.Convert.ToSingle(z[1]), X1 = System.Convert.ToSingle(z[2]), Z1 = System.Convert.ToSingle(z[3]),
+                        Fn = () => { if (flag.Length > 0 && vars.Truthy(flag)) return; if (flag.Length > 0) vars.Set(flag, "1"); ShowInspect(inspect); if (then.Length > 0) Fire(then); }
+                    });
+                return;
+            }
             var targets = w.FindInteractables(target);
             if (targets.Count == 0)
             {
@@ -371,17 +416,78 @@ namespace NightEval.Director
 
         public void ShowInspect(string inspectId)
         {
-            var lines = StoryLogic.InspectLines(data, inspectId, vars);
-            if (lines.Count > 0) s.Hud.Monologue(lines);
+            if (string.IsNullOrEmpty(inspectId)) return;
+            var r = StoryLogic.Inspect(data, inspectId, vars);
+            StoryLogic.ApplySets(r.Set, vars);
+            if (r.Lines.Count > 0) s.Hud.Monologue(r.Lines);
+        }
+
+        // ---------- 구역 확인 지점 (배치 좌표: x, z 는 Unity 좌표 그대로) ----------
+        sealed class Zone { public float X0, Z0, X1, Z1; public System.Action Fn; }
+        readonly List<Zone> zones = new List<Zone>();
+
+        void Update()
+        {
+            if (zones.Count == 0 || s == null || s.Player == null) return;
+            var p = s.Player.transform.position;
+            for (int i = zones.Count - 1; i >= 0; i--)
+            {
+                var z = zones[i];
+                if (p.x >= Mathf.Min(z.X0, z.X1) && p.x <= Mathf.Max(z.X0, z.X1) && p.z >= Mathf.Min(z.Z0, z.Z1) && p.z <= Mathf.Max(z.Z0, z.Z1))
+                { zones.RemoveAt(i); z.Fn(); }
+            }
+        }
+
+        // ---------- 사무실 분위기 (구하지 못한 사람 수에 따라 어두워진다) ----------
+        public void ApplyMood()
+        {
+            float k = vars.GetNum("victims") >= 1 ? 0.62f : 1f;
+            foreach (var g in new[] { "zoneA", "zoneB", "aisle" })
+                foreach (var l in w.Lights(g)) l.Mood = k;
+            StartCoroutine(FogTo(baseFog + (vars.GetNum("victims") >= 1 ? 0.014f : 0f), 2.5f));
+        }
+        public float baseFog = 0.062f;
+
+        // ---------- 프린터: 혼자 출력한다. 출력물을 집으면 flag ----------
+        void Print(StoryAction a)
+        {
+            var it = w.Interactables.TryGetValue("Printer", out var found) ? found : null;
+            var pos = it != null ? it.transform.position : s.Player.transform.position;
+            s.Audio.PlayAt("sfx_printer", pos + Vector3.up * 0.8f, 0.9f, 0.03f, 22f);
+            string flag = a.Str("flag", "");
+            var sheet = data.Sheets.TryGetValue(a.Str("sheet", ""), out var sh) ? sh : new List<string>();
+            if (it == null) { if (flag.Length > 0) vars.Set(flag, "1"); return; }
+            float ready = Time.time + 2.6f;
+            var owner = new object();
+            it.Add("출력물을 집는다", () => Time.time >= ready && (flag.Length == 0 || !vars.Truthy(flag)), () =>
+            {
+                it.RemoveOwner(owner);
+                s.Audio.Ui("sfx_check", 0.3f);
+                var lines = new List<string>();
+                foreach (var l in sheet) lines.Add(vars.Format(l));
+                if (lines.Count > 0) s.Hud.Monologue(lines);
+                if (flag.Length > 0) vars.Set(flag, "1");
+            }, 100, owner);
+        }
+
+        // ---------- 회의실 프로젝터 ----------
+        void Projector(bool on)
+        {
+            var anchor = w.Anchor("Projector");
+            StopLoop("proj");
+            if (on && anchor != null) { var src = s.Audio.Loop3D("amb_fan", anchor, 0.25f, 0.5f, 6f); if (src != null) loops["proj"] = src; }
+            if (w.ProjectorBeam != null) w.ProjectorBeam.SetActive(on);
         }
 
         // ---------- 기본 상호작용 (조사, 문) ----------
 
         static string InspectKey(string id)
         {
+            // 브라우저판과 같은 규칙: 창문 → window, 116 모니터는 그대로, 다른 꺼진 모니터 → dead_pc, A11·B23 같은 책상 → desk
             if (id.StartsWith("Window")) return "window";
+            if (id == "crt_Desk116") return id;
             if (id.StartsWith("crt_")) return "dead_pc";
-            if (id.Length == 3 && id[0] == 'D' && char.IsDigit(id[1])) return "desk";
+            if (id.Length == 3 && (id[0] == 'A' || id[0] == 'B') && char.IsDigit(id[1]) && char.IsDigit(id[2])) return "desk";
             return id;
         }
 
@@ -392,11 +498,24 @@ namespace NightEval.Director
                 string id = kv.Key;
                 var it = kv.Value;
                 if (w.Doors.ContainsKey(id)) continue;
-                if (id == "Computer") continue;
+                if (id == "Computer" || id == "PowerStrip") continue;
                 string key = InspectKey(id);
                 if (!data.Inspects.ContainsKey(key)) continue;
                 it.Add("살펴본다", () => true, () => ShowInspect(key), 0, this);
             }
+
+            // 책상 밑 멀티탭: 한 번은 가이드가 말리고, 두 번째에 뽑힌다 → 엔딩 4 (공허)
+            if (w.Interactables.TryGetValue("PowerStrip", out var ps))
+                ps.Add("멀티탭을 뽑는다", () => gm.Phase == GamePhase.Playing && !s.Story.Ending, () =>
+                {
+                    if (!vars.Truthy("ps_warned"))
+                    {
+                        vars.Set("ps_warned", "1");
+                        s.Hud.Monologue(new List<string> { "가이드 › 잠깐만요. 그건 건드리지 마세요.", "(책상 밑 멀티탭. 단말기 전원이 여기 꽂혀 있다.)" });
+                        return;
+                    }
+                    s.Story.Begin("end4_seq");
+                }, 0, this);
 
             foreach (var kv in w.Doors)
             {
@@ -412,31 +531,16 @@ namespace NightEval.Director
                     ShowInspect(id + "_locked");
                 }, 1, this);
 
-                if (id == "FrontDoor")
+                it.Add("문을 연다", () => !door.Locked && door.Amount < 0.5f && !door.Busy && id != "ExitDoor", () =>
                 {
-                    // 잠기지 않은 입구 = 퇴근(중도 이탈) 선택
-                    it.Add("퇴근한다", () => !door.Locked && !vars.Truthy("final") && !vars.Truthy("chase") && gm.Phase == GamePhase.Playing, () =>
-                    {
-                        gm.AskLeave();
-                    }, 2, this);
-                }
-                else if (id == "BackDoor")
+                    door.SetOpen(1f, 1.3f);
+                    s.Audio.PlayAt("sfx_door_open", door.transform.position + Vector3.up, 0.7f, 0.04f, 14f);
+                }, 2, this);
+                it.Add("문을 닫는다", () => !door.Locked && door.Amount >= 0.5f && !door.Busy && !s.Chase.Running && id != "StaffDoor" && id != "ExitDoor", () =>
                 {
-                    it.Add("문을 연다", () => !door.Locked && door.Amount < 0.5f && !door.Busy, () =>
-                    {
-                        door.SetOpen(1f, 1.4f);
-                        s.Audio.PlayAt("sfx_door_open", door.transform.position + Vector3.up, 0.7f, 0.04f, 14f);
-                        vars.Set("back_ajar", "1");
-                        SetDraft(0.35f);
-                    }, 2, this);
-                    it.Add("문을 닫는다", () => !door.Locked && door.Amount >= 0.5f && !door.Busy && !vars.Truthy("chase"), () =>
-                    {
-                        door.SetOpen(0f, 1.2f);
-                        s.Audio.PlayAt("sfx_door_close", door.transform.position + Vector3.up, 0.7f, 0.04f, 14f);
-                        vars.Remove("back_ajar");
-                        SetDraft(0f);
-                    }, 2, this);
-                }
+                    door.SetOpen(0f, 1.1f);
+                    s.Audio.PlayAt("sfx_door_close", door.transform.position + Vector3.up, 0.7f, 0.04f, 14f);
+                }, 2, this);
             }
 
         }

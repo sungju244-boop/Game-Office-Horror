@@ -33,7 +33,11 @@ namespace NightEval.World
         public Transform ChairSeat;
 
         public MonitorScreen CctvMonitor;
+        public GameObject ProjectorBeam;      // 회의실 프로젝터 빛 (켜짐/꺼짐)
+        public float Fog = 0.062f;            // 배치 데이터의 기본 안개
+        public Vector3 SupSpawn, ExitPoint, VoidPoint;
         public CctvCamera Cctv;
+        public readonly Dictionary<string, CctvCamera> Cctvs = new Dictionary<string, CctvCamera>();
         public WallClock Clock;
         public PlayerAvatar Avatar;
 

@@ -15,11 +15,11 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-LAYOUT = os.path.join(ROOT, "Assets", "Resources", "Data", "office_layout_legacy.json")
+LAYOUT = os.path.join(ROOT, "Assets", "Resources", "Data", "office_layout.json")
 RES = 0.05            # 5cm 격자
 RADIUS = 0.30         # CharacterController 반지름
 WALL = 0.15
-X0, X1, Z0, Z1 = -8.0, 8.0, -8.5, 14.0
+X0, X1, Z0, Z1 = -16.0, 16.0, -11.0, 13.0   # 넓힌 4층 (공허는 제외)
 
 
 def load():
@@ -91,7 +91,13 @@ def build(L, scenario):
         w = d.get("width", 1.0)
         is_open = scenario.get(d["id"], False)
         if not is_open:
-            g.rect(hx + w / 2, hz, w, 0.05, 0, g.block)
+            dr = d.get("dir", "x")
+            if dr in ("z", "-z"):
+                sgn = 1 if dr == "z" else -1
+                g.rect(hx, hz + sgn * w / 2, 0.05, w, 0, g.block)
+            else:
+                sgn = 1 if dr == "x" else -1
+                g.rect(hx + sgn * w / 2, hz, w, 0.05, 0, g.block)
     for p in L["props"]:
         t = p["type"]
         x, z = p["pos"]
@@ -108,6 +114,13 @@ def build(L, scenario):
             g.rect(x, z, 0.46, 0.62, yaw, g.block)
         elif t == "cooler":
             g.rect(x, z, 0.34, 0.34, yaw, g.block)
+        elif t == "rack":
+            g.rect(x, z, 0.6, 1.0, yaw, g.block)
+        elif t == "printer":
+            g.rect(x, z, 0.6, 0.5, yaw, g.block)
+        elif t == "table":
+            sz = p.get("size", [2.4, 1.0])
+            g.rect(x, z, sz[0] + 0.2, sz[1] + 0.9, yaw, g.block)  # 의자까지
         elif t == "boxes":
             ox, oz = rot(0.02, -0.18, yaw)
             g.rect(x + ox, z + oz, 0.6, 0.82, yaw, g.block)
@@ -153,23 +166,23 @@ def nearest_reach(g, dist, x, z, max_r=2.0):
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "Tools", "_out", "layout_map.png")
     L = load()
+    # 잠기지 않은 문(입구·관리자실·회의실)은 플레이어가 열 수 있다. 추격 때는 비상구가 열린다
+    opened = {"FrontDoor": True, "ManagerDoor": True, "MeetDoor": True}
     scenarios = {
-        "시작 (뒤쪽 문 잠김)": {},
-        "뒤쪽 문 열림 (기록1 피드백 후)": {"BackDoor": True},
-        "추격 (뒤쪽 문 열림)": {"BackDoor": True, "FrontDoor": True},
+        "평소 (입구·관리자실·회의실 문 열림)": dict(opened),
+        "추격 (비상구 열림)": dict(opened, ExitDoor=True),
     }
+    ex = L.get("exitPoint", [-13.5, 9.15])
     targets = {
-        "자리(컴퓨터)": ((-4.65, -4.3), 1.6),
-        "뒤쪽 문": ((5.0, 5.0), 1.4),
-        "입구 문": ((-1.5, -5.0), 1.4),
-        "조명 패널": ((-6.93, -1.05), 1.4),
-        "감독석 모니터": ((-6.35, 2.2), 1.6),
-        "감독석 전화": ((-6.18, 2.72), 1.6),
-        "116번 자리": ((2.7, 3.6), 1.4),
-        "꺼진 모니터(D12)": ((-2.45, -1.02), 1.5),
-        "창문": ((7.0, 0.0), 1.4),
-        "벽시계": ((-6.9, -2.0), 1.8),
-        "비상구": ((5.0, 12.55), 1.2),
+        "117 자리(컴퓨터)": ((-5.6, 5.6), 1.6),
+        "프린터": ((-0.9, 3.0), 1.5),
+        "관리자실 CCTV": ((-3.3, -7.0), 1.7),
+        "관리자실 전화": ((-3.3, -7.0), 1.7),
+        "회의실 프로젝터": ((8.9, -7.0), 1.7),
+        "조명 패널": ((-11.93, 1.2), 1.4),
+        "벽시계": ((-5.5, 9.9), 1.8),
+        "116번 자리": ((-3.8, 5.6), 1.4),
+        "비상구": ((ex[0], ex[1]), 1.2),
     }
     sx, sz = L["spawn"]["pos"]
     ok = True

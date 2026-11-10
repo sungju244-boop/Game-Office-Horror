@@ -104,7 +104,7 @@ namespace NightEval.Story
             return float.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out f);
         }
 
-        /// <summary>문장 안의 {key} 를 현재 값으로 바꾼다. 값이 없으면 "—".</summary>
+        /// <summary>문장 안의 {key} 를 현재 값으로 바꾼다. 값이 없으면 "0".</summary>
         public string Format(string text)
         {
             if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0) return text ?? "";
@@ -120,7 +120,7 @@ namespace NightEval.Story
                     {
                         string key = text.Substring(i + 1, end - i - 1);
                         string v = Get(key);
-                        sb.Append(v.Length > 0 ? v : "—");
+                        sb.Append(v.Length > 0 ? v : "0"); // 브라우저판과 같게: 값이 없으면 0
                         i = end + 1;
                         continue;
                     }

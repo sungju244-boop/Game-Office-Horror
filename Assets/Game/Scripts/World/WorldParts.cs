@@ -70,6 +70,7 @@ namespace NightEval.World
         public float BaseIntensity = 0.9f;
         public float Level { get; private set; }
         public bool Flicker;
+        public float Mood = 1f;       // 구하지 못한 사람이 생기면 어두워진다 (0.62)
 
         float target, from, t = 1f, duration;
         float flickerTimer, flickerMul = 1f;
@@ -116,7 +117,7 @@ namespace NightEval.World
 
         void Apply()
         {
-            float k = Level * flickerMul;
+            float k = Level * flickerMul * Mood;
             if (Light != null)
             {
                 Light.intensity = BaseIntensity * k;

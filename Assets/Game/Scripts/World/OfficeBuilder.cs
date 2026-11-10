@@ -21,7 +21,7 @@ namespace NightEval.World
 
             ReadPoints(L, reg, root.transform, pf);
             var structure = pf.Node(root.transform, "Structure", Vector3.zero).transform;
-            foreach (object o in MiniJson.List(L, "floors")) BuildFloor(o as Dictionary<string, object>, structure, pf);
+            foreach (object o in MiniJson.List(L, "floors")) BuildFloor(o as Dictionary<string, object>, structure, pf, reg);
             foreach (object o in MiniJson.List(L, "walls")) BuildWall(o as Dictionary<string, object>, structure, pf, reg);
             var doors = pf.Node(root.transform, "Doors", Vector3.zero).transform;
             foreach (object o in MiniJson.List(L, "doors")) BuildDoor(o as Dictionary<string, object>, doors, pf, reg, ctx);
@@ -79,8 +79,13 @@ namespace NightEval.World
             var tc = MiniJson.Obj(L, "titleCam");
             reg.TitleCamPos = XYZ(MiniJson.Floats(tc, "pos"));
             reg.TitleCamLook = XYZ(MiniJson.Floats(tc, "look"));
-            reg.AddAnchor("CatSpawn", pf.Node(root, "CatSpawn", XZ(MiniJson.Floats(L, "catSpawn"))).transform);
-            reg.AddAnchor("ExitPoint", pf.Node(root, "ExitPoint", XZ(MiniJson.Floats(L, "exitPoint"))).transform);
+            reg.SupSpawn = XZ(MiniJson.Floats(L, "supSpawn"));
+            reg.ExitPoint = XZ(MiniJson.Floats(L, "exitPoint"));
+            reg.VoidPoint = XZ(MiniJson.Floats(L, "voidPoint"));
+            reg.Fog = MiniJson.Num(L, "fog", 0.062f);
+            reg.AddAnchor("SupSpawn", pf.Node(root, "SupSpawn", reg.SupSpawn).transform);
+            reg.AddAnchor("ExitPoint", pf.Node(root, "ExitPoint", reg.ExitPoint).transform);
+            reg.AddAnchor("VoidPoint", pf.Node(root, "VoidPoint", reg.VoidPoint).transform);
             reg.AddAnchor("FrontHall", pf.Node(root, "FrontHall", new Vector3(-1.5f, 1.2f, -6.6f)).transform);
             reg.AddAnchor("Corridor", pf.Node(root, "Corridor", new Vector3(5f, 1.2f, 9f)).transform);
             reg.AddAnchor("CeilingMid", pf.Node(root, "CeilingMid", new Vector3(0.5f, 2.4f, 0.5f)).transform);
@@ -88,15 +93,22 @@ namespace NightEval.World
 
         // ---------- 바닥·천장 ----------
 
-        static void BuildFloor(Dictionary<string, object> d, Transform parent, PropFactory pf)
+        static void BuildFloor(Dictionary<string, object> d, Transform parent, PropFactory pf, WorldRegistry reg)
         {
             if (d == null) return;
+            if (MiniJson.Bool(d, "void")) // 맵 밖의 공허 (엔딩 4): 1단계에서는 바닥을 만들지 않고 위치만 기억한다
+            {
+                var vmin = MiniJson.Floats(d, "min"); var vmax = MiniJson.Floats(d, "max");
+                reg.AddAnchor("Room_" + MiniJson.Str(d, "id", "void"), pf.Node(parent, "Room_void", new Vector3((vmin[0] + vmax[0]) / 2f, 1.2f, (vmin[1] + vmax[1]) / 2f)).transform);
+                return;
+            }
             var min = MiniJson.Floats(d, "min");
             var max = MiniJson.Floats(d, "max");
             float h = MiniJson.Num(d, "ceiling", 2.6f);
             float w = max[0] - min[0], dep = max[1] - min[1];
             var c = new Vector3((min[0] + max[0]) * 0.5f, 0, (min[1] + max[1]) * 0.5f);
             string id = MiniJson.Str(d, "id", "floor");
+            reg.AddAnchor("Room_" + id, pf.Node(parent, "Room_" + id, c + Vector3.up * 1.2f).transform);
             var floor = pf.Box(parent, "Floor_" + id, new Vector3(w, 0.1f, dep), c + Vector3.down * 0.05f, MiniJson.Str(d, "mat", "carpet"), default, 1f, true);
             floor.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             // 천장은 벽 위를 덮도록 조금 넓고 두껍게 (달빛이 틈으로 새지 않게)
@@ -123,6 +135,7 @@ namespace NightEval.World
                 if (!(oo is Dictionary<string, object> od)) continue;
                 openings.Add(new[] { MiniJson.Num(od, "c"), MiniJson.Num(od, "w"), MiniJson.Num(od, "y0"), MiniJson.Num(od, "y1") });
                 string win = MiniJson.Str(od, "window", null);
+                if (MiniJson.Bool(od, "glass")) BuildGlass(a + dir * MiniJson.Num(od, "c"), MiniJson.Num(od, "w"), MiniJson.Num(od, "y0"), MiniJson.Num(od, "y1"), alongX, parent, pf);
                 if (win != null) BuildWindow(win, a + dir * MiniJson.Num(od, "c"), MiniJson.Num(od, "w"), MiniJson.Num(od, "y0"), MiniJson.Num(od, "y1"), alongX, parent, pf, reg);
             }
             openings.Sort((p, q) => p[0].CompareTo(q[0]));
@@ -151,6 +164,20 @@ namespace NightEval.World
                 Vector3 bs = alongX ? new Vector3(l, 0.08f, WallThick + 0.025f) : new Vector3(WallThick + 0.025f, 0.08f, l);
                 pf.Box(parent, "Baseboard", bs, new Vector3(c.x, 0.04f, c.z), "baseboard");
             }
+        }
+
+        /// <summary>회의실 유리벽: 금속 틀 + 지나갈 수 없는 투명한 막 (유리 재질은 2단계)</summary>
+        static void BuildGlass(Vector3 center, float w, float y0, float y1, bool alongX, Transform parent, PropFactory pf)
+        {
+            float h = y1 - y0;
+            var g = pf.Node(parent, "Glass", new Vector3(center.x, (y0 + y1) * 0.5f, center.z), alongX ? 0f : 90f).transform;
+            pf.Box(g, "Top", new Vector3(w, 0.05f, 0.08f), new Vector3(0, h / 2f, 0), "metal_dark");
+            pf.Box(g, "Bottom", new Vector3(w, 0.05f, 0.08f), new Vector3(0, -h / 2f, 0), "metal_dark");
+            int n = Mathf.Max(1, Mathf.RoundToInt(w / 1.2f));
+            for (int i = 0; i <= n; i++) pf.Box(g, "Mullion", new Vector3(0.04f, h, 0.06f), new Vector3(-w / 2f + w * i / n, 0, 0), "metal_dark");
+            var block = pf.Node(g, "Block", Vector3.zero);
+            block.AddComponent<BoxCollider>().size = new Vector3(w, h, 0.06f);
+            block.layer = Layers.IgnoreRaycast;
         }
 
         static void BuildWindow(string id, Vector3 center, float w, float y0, float y1, bool alongX, Transform parent, PropFactory pf, WorldRegistry reg)
@@ -249,7 +276,8 @@ namespace NightEval.World
             if (d == null) return;
             string id = MiniJson.Str(d, "id", "Light");
             float h = MiniJson.Num(d, "ceiling", 2.6f);
-            Vector3 p = XZ(MiniJson.Floats(d, "pos"), h);
+            Vector3 p = XZ(MiniJson.Floats(d, "pos"), MiniJson.Has(d, "y") ? MiniJson.Num(d, "y") : h);
+            bool dead = MiniJson.Bool(d, "dead");
             var root = pf.Node(parent, id, p).transform;
             pf.Box(root, "Frame", new Vector3(1.22f, 0.05f, 0.62f), new Vector3(0, -0.025f, 0), "metal");
             var panel = pf.Box(root, "Diffuser", new Vector3(1.16f, 0.012f, 0.56f), new Vector3(0, -0.056f, 0), "panel_on");
@@ -257,14 +285,15 @@ namespace NightEval.World
             var lgo = pf.Node(root, "Light", new Vector3(0, -0.35f, 0));
             var light = lgo.AddComponent<Light>();
             light.type = LightType.Point;
-            light.color = new Color(0.8f, 0.9f, 1.0f);
-            light.range = h < 2.55f ? 5f : 6.5f;
+            var col = MiniJson.Floats(d, "color");
+            light.color = col.Length >= 3 ? new Color(col[0], col[1], col[2]) : new Color(0.8f, 0.9f, 1.0f);
+            light.range = MiniJson.Has(d, "range") ? MiniJson.Num(d, "range") : (h < 2.55f ? 5f : 6.5f);
             light.shadows = LightShadows.None;
             var cl = root.gameObject.AddComponent<CeilingLight>();
             cl.Light = light;
             cl.Panel = panel.GetComponent<Renderer>();
-            cl.BaseIntensity = 0.85f;
-            cl.Init(MiniJson.Num(d, "level", 1f), MiniJson.Bool(d, "flicker"));
+            cl.BaseIntensity = MiniJson.Num(d, "base", 0.85f);
+            cl.Init(dead ? 0f : MiniJson.Num(d, "level", 1f), !dead && MiniJson.Bool(d, "flicker"));
             reg.AddLight(MiniJson.Str(d, "group", "ceiling"), cl);
             reg.AddAnchor(id, root);
         }
@@ -340,9 +369,78 @@ namespace NightEval.World
                 case "cctv":
                 {
                     var cam = pf.Cctv(parent, id, pos);
-                    reg.Cctv = cam;
+                    if (reg.Cctv == null) reg.Cctv = cam;
+                    reg.Cctvs[id] = cam;
                     reg.AddAnchor(id, cam.transform);
-                    if (cam.Head != null) cam.Head.rotation = Quaternion.LookRotation(new Vector3(-4.6f, 1.0f, -3.6f) - cam.Head.position);
+                    var look = MiniJson.Floats(d, "look");
+                    if (cam.Head != null && look.Length >= 3) cam.Head.rotation = Quaternion.LookRotation(XYZ(look) - cam.Head.position);
+                    break;
+                }
+                case "decal":
+                {
+                    var size = MiniJson.Floats(d, "size");
+                    bool hit = MiniJson.Bool(d, "hit");
+                    var dg = pf.Decal(parent, id.Length > 0 ? id : "Decal", MiniJson.Str(d, "tex", "notice"), size.Length >= 2 ? new Vector2(size[0], size[1]) : new Vector2(0.4f, 0.3f), pos, rot, hit);
+                    if (hit && id.Length > 0) reg.AddInteractable(id, dg.AddComponent<Interactable>());
+                    break;
+                }
+                case "printer":
+                {
+                    var pr = pf.Node(parent, id.Length > 0 ? id : "Printer", pos, rot).transform;
+                    pf.Box(pr, "Stand", new Vector3(0.6f, 0.72f, 0.5f), new Vector3(0, 0.36f, 0), "metal_dark", default, 1f, true);
+                    pf.Box(pr, "Body", new Vector3(0.52f, 0.34f, 0.44f), new Vector3(0, 0.89f, 0), "plastic", default, 1f, true);
+                    pf.Box(pr, "Tray", new Vector3(0.3f, 0.02f, 0.24f), new Vector3(0, 0.8f, -0.3f), "plastic_dark");
+                    pf.Box(pr, "Led", new Vector3(0.02f, 0.02f, 0.01f), new Vector3(0.2f, 1.0f, -0.225f), "led_green");
+                    reg.AddInteractable(id.Length > 0 ? id : "Printer", pr.gameObject.AddComponent<Interactable>());
+                    break;
+                }
+                case "table":
+                {
+                    var size = MiniJson.Floats(d, "size");
+                    float tw = size.Length >= 2 ? size[0] : 2.4f, td = size.Length >= 2 ? size[1] : 1.0f;
+                    var tb = pf.Node(parent, id.Length > 0 ? id : "Table", pos, rot).transform;
+                    pf.Box(tb, "Top", new Vector3(tw, 0.05f, td), new Vector3(0, 0.74f, 0), "desk_top", default, 1f, true);
+                    foreach (var sx in new[] { -1f, 1f }) foreach (var sz in new[] { -1f, 1f })
+                            pf.Box(tb, "Leg", new Vector3(0.06f, 0.72f, 0.06f), new Vector3(sx * (tw / 2f - 0.1f), 0.36f, sz * (td / 2f - 0.1f)), "metal_dark");
+                    int chairs = (int)MiniJson.Num(d, "chairs", 0f);
+                    int per = Mathf.Max(1, (chairs + 1) / 2);
+                    for (int k = 0; k < chairs; k++)
+                    {
+                        int side = k % 2 == 0 ? -1 : 1, idx = k / 2;
+                        pf.Chair(tb, new Vector3(-tw / 2f + tw * (idx + 0.5f) / per, 0, side * (td / 2f + 0.35f)), side < 0 ? 0f : 180f);
+                    }
+                    if (id.Length > 0) reg.AddInteractable(id, tb.gameObject.AddComponent<Interactable>());
+                    break;
+                }
+                case "projector":
+                {
+                    var pj = pf.Node(parent, id.Length > 0 ? id : "Projector", pos, rot).transform;
+                    pf.Box(pj, "Body", new Vector3(0.3f, 0.1f, 0.24f), new Vector3(0, 0.05f, 0), "plastic");
+                    pf.Box(pj, "Lens", new Vector3(0.06f, 0.06f, 0.03f), new Vector3(0, 0.05f, -0.13f), "black");
+                    var probe = pf.Node(pj, "Probe", new Vector3(0, 0.05f, 0));
+                    var pbc = probe.AddComponent<BoxCollider>(); pbc.isTrigger = true; pbc.size = new Vector3(0.4f, 0.25f, 0.34f);
+                    reg.AddInteractable(id.Length > 0 ? id : "Projector", pj.gameObject.AddComponent<Interactable>());
+                    var scr = MiniJson.Obj(d, "screen");
+                    if (scr != null)
+                    {
+                        var ss = MiniJson.Floats(scr, "size");
+                        var sp = XZ(MiniJson.Floats(scr, "pos"), MiniJson.Num(scr, "y", 1.45f));
+                        var screenGo = pf.Decal(parent, "ProjectorScreen", "paper", ss.Length >= 2 ? new Vector2(ss[0], ss[1]) : new Vector2(2f, 1.2f), sp, MiniJson.Num(scr, "rot", 0f), false);
+                        // 빛: 화면을 비추는 약한 스포트라이트 (켜짐/꺼짐)
+                        var beam = pf.Node(pj, "Beam", new Vector3(0, 0.05f, -0.15f));
+                        beam.transform.rotation = Quaternion.LookRotation(screenGo.transform.position - beam.transform.position);
+                        var bl = beam.AddComponent<Light>();
+                        bl.type = LightType.Spot; bl.spotAngle = 32f; bl.range = 6f; bl.intensity = 1.6f; bl.color = new Color(0.75f, 0.85f, 1f); bl.shadows = LightShadows.None;
+                        beam.SetActive(false);
+                        reg.ProjectorBeam = beam;
+                    }
+                    break;
+                }
+                case "rack":
+                {
+                    var rk = pf.Node(parent, id.Length > 0 ? id : "Rack", pos, rot).transform;
+                    pf.Box(rk, "Body", new Vector3(0.6f, 2.0f, 1.0f), new Vector3(0, 1.0f, 0), "plastic_dark", default, 1f, true);
+                    pf.Decal(rk, "Front", "rack_front", new Vector2(0.56f, 1.9f), new Vector3(0, 1.0f, -0.501f), 0f, false);
                     break;
                 }
                 default:
@@ -408,7 +506,7 @@ namespace NightEval.World
                 var ms = crt.Root.AddComponent<MonitorScreen>();
                 ms.Screen = crt.Screen;
                 ms.DeadMaterial = ctx.Mats.Get("screen_dead");
-                if (GlowDesks.Contains(id))
+                if (GlowDesks.Contains(id) || MiniJson.Bool(d, "glow"))
                 {
                     var g = new GameObject("Glow");
                     g.transform.SetParent(crt.Root.transform, false);
@@ -461,6 +559,25 @@ namespace NightEval.World
                         }
                         break;
                     case "mug": pf.Mug(t, new Vector3(-0.52f, 0.75f, -0.18f)); break;
+                    case "powerstrip":
+                    {
+                        // 책상 왼쪽 다리 옆 바닥의 멀티탭 (엔딩 4: 두 번 뽑으면 공허)
+                        var ps = pf.Node(t, "PowerStrip", new Vector3(-0.86f, 0f, -0.18f), 8f).transform;
+                        pf.Box(ps, "Body", new Vector3(0.07f, 0.04f, 0.32f), new Vector3(0, 0.02f, 0), "plastic");
+                        for (int k = 0; k < 4; k++) pf.Box(ps, "Socket", new Vector3(0.035f, 0.012f, 0.035f), new Vector3(0, 0.045f, -0.11f + k * 0.075f), "plastic_dark");
+                        pf.Box(ps, "Led", new Vector3(0.012f, 0.01f, 0.012f), new Vector3(0.024f, 0.045f, 0.14f), "led_red");
+                        var pbc = ps.gameObject.AddComponent<BoxCollider>(); pbc.isTrigger = true; pbc.center = new Vector3(0, 0.05f, 0); pbc.size = new Vector3(0.25f, 0.2f, 0.45f);
+                        reg.AddInteractable("PowerStrip", ps.gameObject.AddComponent<Interactable>());
+                        break;
+                    }
+                    case "note116":
+                    {
+                        var n = pf.Decal(t, "Note116", "note116", new Vector2(0.15f, 0.21f), new Vector3(0.38f, 0.7515f, -0.12f), 0f, false);
+                        n.transform.localRotation = Quaternion.Euler(90f, -8f, 0f);
+                        var nbc = n.AddComponent<BoxCollider>(); nbc.size = new Vector3(0.2f, 0.26f, 0.06f);
+                        reg.AddInteractable("Note116", n.AddComponent<Interactable>());
+                        break;
+                    }
                     case "papers": pf.Papers(t, new Vector3(0.5f, 0.75f, 0.05f), -8f); break;
                     case "boxes": pf.DeskBoxes(t, new Vector3(0f, 0.75f, 0.05f)); break;
                 }
