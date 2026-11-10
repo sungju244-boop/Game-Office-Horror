@@ -179,7 +179,7 @@ namespace NightEval
             s.Seat = s.Root.AddComponent<TerminalSeat>();
             s.Seat.Init(s.Player, s.Interactor, cam, s.Terminal, s.World.LiveScreen, s.World.LiveScreenCollider, s.World.Avatar);
             s.World.Computer.Add("컴퓨터 사용", () => Phase == GamePhase.Playing && !s.Seat.IsSeated && !s.Seat.InTransition, () => s.Seat.Enter(), 0, this);
-            s.Seat.Seated += () => { s.Hud.SetCrosshair(false); s.Vars.Set("sat_once", "1"); if (s.Vars.Get("objective_seat") == "1") { s.Vars.Remove("objective_seat"); s.Hud.SetObjective(null); } };
+            s.Seat.Seated += () => { s.Hud.SetCrosshair(false); s.Vars.Set("sat_once", "1"); s.Guide?.Clear("Computer"); if (s.Vars.Get("objective_seat") == "1") { s.Vars.Remove("objective_seat"); s.Hud.SetObjective(null); } };
             s.Seat.Stood += () => s.Hud.SetCrosshair(true);
 
             if (s.World.Clock != null) s.World.Clock.ClockSource = () => s.Vars.Get("clock");
@@ -194,6 +194,12 @@ namespace NightEval
             s.Story.Init(this, s, Story);
             s.Chase = s.Root.AddComponent<ChaseController>();
             s.Chase.Init(s);
+            s.Guide = s.Root.AddComponent<GuideDirector>();
+            s.Guide.Init(this, s);
+            s.Hand = s.Root.AddComponent<HandView>();
+            s.Hand.Init(cam);
+            // F키 손동작을 막는 때: 플레이 중이 아님, 메뉴·창, 미로·명령 입력, 엔딩
+            s.Hand.Blocked = () => Phase != GamePhase.Playing || Paused || s.Menus.AnyOpen || s.Terminal.InMaze || s.Story.Ending;
 
             Phase = GamePhase.Booting;
         }
@@ -257,6 +263,7 @@ namespace NightEval
             s.Terminal.ClearBody();
             Phase = GamePhase.Playing;
             s.Story.Begin(snap.Node);
+            s.Guide.Set("Computer", "117", 0f);
             StartCoroutine(s.Hud.Fade(0f, 1.2f));
         }
 
@@ -308,7 +315,8 @@ namespace NightEval
             Phase = GamePhase.Playing;
             s.Vars.Set("objective_seat", "1");
             s.Hud.SetObjective("117번 자리를 찾아 앉자. (칸막이 구역 A, 모니터가 켜진 책상)");
-            s.Hud.Help("WASD 이동 · 마우스 시점 · E 상호작용 · ESC 메뉴", 9f);
+            s.Hud.Help("WASD 이동 · 마우스 시점 · E 상호작용 / 앉기 · F 손동작 · ESC 메뉴", 9f);
+            s.Guide.Set("Computer", "117", 0f);
             s.Story.Begin(Story.Start);
         }
 

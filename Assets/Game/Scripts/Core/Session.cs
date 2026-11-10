@@ -29,6 +29,8 @@ namespace NightEval
         public EnvironmentDirector Env;
         public StoryDirector Story;
         public ChaseController Chase;
+        public GuideDirector Guide;
+        public HandView Hand;
         public Hud Hud;
         public Menus Menus;
 

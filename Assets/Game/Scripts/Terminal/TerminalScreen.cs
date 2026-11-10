@@ -217,6 +217,9 @@ namespace NightEval.Terminal
             centerMain.enabled = centerSub.enabled = true;
         }
 
+        public string CenterMain => centerMain != null ? centerMain.text : "";
+        public string CenterSub => centerSub != null ? centerSub.text : "";
+
         public void HideCenter()
         {
             centerMain.text = centerSub.text = "";

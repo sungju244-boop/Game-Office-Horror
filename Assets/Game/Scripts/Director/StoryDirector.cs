@@ -187,7 +187,8 @@ namespace NightEval.Director
                 }
                 s.Hud.SetObjective(null);
             }
-            if (task.NoSit) yield break;
+            if (task.NoSit) { s.Guide.Clear(); yield break; }
+            s.Guide.Set("Computer", "117", 12f);
             s.Terminal.ShowCenter("새 기록 1건", "자리에 앉아 확인하십시오");
             s.Terminal.PlaySfx("sfx_beep_new", 0.6f, 0f);
             if (!s.Seat.IsSeated)

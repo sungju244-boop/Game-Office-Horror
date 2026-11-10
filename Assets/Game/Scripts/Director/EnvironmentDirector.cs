@@ -397,6 +397,7 @@ namespace NightEval.Director
                 vars.Set(flag, "1");
                 return;
             }
+            if (flag.Length > 0) s.Guide.Set(target, WpLabel(target), 25f);
             var owner = new object();
             foreach (var it in targets)
             {
@@ -412,6 +413,11 @@ namespace NightEval.Director
                     if (then.Length > 0) Fire(then);
                 }, 100, owner);
             }
+        }
+
+        static string WpLabel(string id)
+        {
+            switch (id) { case "Printer": return "프린터"; case "CctvMonitor": return "관리자실 CCTV"; case "Projector": return "회의실 프로젝터"; case "Phone": return "관리자실 전화"; default: return id; }
         }
 
         public void ShowInspect(string inspectId)
@@ -457,6 +463,7 @@ namespace NightEval.Director
             string flag = a.Str("flag", "");
             var sheet = data.Sheets.TryGetValue(a.Str("sheet", ""), out var sh) ? sh : new List<string>();
             if (it == null) { if (flag.Length > 0) vars.Set(flag, "1"); return; }
+            if (flag.Length > 0) s.Guide.Set("Printer", "프린터", 25f);
             float ready = Time.time + 2.6f;
             var owner = new object();
             it.Add("출력물을 집는다", () => Time.time >= ready && (flag.Length == 0 || !vars.Truthy(flag)), () =>
