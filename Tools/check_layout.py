@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-LAYOUT = os.path.join(ROOT, "Assets", "Resources", "Data", "office_layout.json")
+LAYOUT = os.path.join(ROOT, "Assets", "Resources", "Data", "office_layout_legacy.json")
 RES = 0.05            # 5cm 격자
 RADIUS = 0.30         # CharacterController 반지름
 WALL = 0.15

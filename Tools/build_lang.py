@@ -24,31 +24,38 @@ def strings(d):
         if isinstance(x, str) and x.strip() and re.search("[가-힣]", x) and x not in out:
             out.append(x)
 
+    def lines(arr):
+        for line in arr or []:
+            add(line["text"] if isinstance(line, dict) else line)
+
     for line in d["intro"]:
         add(line)
+    for c in d.get("chapters", []):
+        add(c.get("label")); add(c.get("title"))
     for n in d["nodes"]:
         add(n.get("record")); add(n.get("status"))
-        for line in n.get("lines", []):
-            add(line["text"] if isinstance(line, dict) else line)
+        lines(n.get("lines"))
+        lines(n.get("hidden"))
         for c in n.get("choices", []):
             add(c["text"])
-            for op in c.get("set", []):
-                if "=" in op and op.split("=")[0].endswith("_label"):
-                    add(op.split("=", 1)[1])
-        w = n.get("wait") or {}
-        add(w.get("hint")); add(w.get("screen"))
+        t = n.get("task") or {}
+        add(t.get("hint")); add(t.get("screen"))
+        m = n.get("maze") or {}
+        add(m.get("subtle")); add(m.get("direct"))
     for e in d["events"]:
         for a in e["actions"]:
-            for k in ("text", "prompt", "place"):
+            for k in ("text", "prompt"):
                 add(a.get(k))
     for e in d["endings"]:
         add(e["title"]); add(e.get("hint"))
-        for line in e["lines"]:
-            add(line["text"] if isinstance(line, dict) else line)
+        lines(e["lines"])
     for v in d["inspects"].values():
         for var in v:
             for t in (var["text"] if isinstance(var["text"], list) else [var["text"]]):
                 add(t)
+    for v in d.get("sheets", {}).values():
+        for t in v:
+            add(t)
     return out
 
 

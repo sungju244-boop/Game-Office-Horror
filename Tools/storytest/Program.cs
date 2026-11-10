@@ -19,7 +19,7 @@ static class Program
     static int Main(string[] args)
     {
         string root = args.Length > 0 ? args[0] : "../..";
-        string path = Path.Combine(root, "Assets/StreamingAssets/Story/story.json");
+        string path = Path.Combine(root, "Assets/StreamingAssets/Story/story_legacy.json");
         data = StoryData.FromJson(File.ReadAllText(path));
         Console.WriteLine($"노드 {data.Nodes.Count}개, 이벤트 {data.Events.Count}개, 엔딩 {data.Endings.Count}개, 조사 문구 {data.Inspects.Count}개");
 

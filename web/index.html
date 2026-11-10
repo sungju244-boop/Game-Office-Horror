@@ -51,11 +51,12 @@
   #jumpscare { position: fixed; inset: 0; background: #000; overflow: hidden; pointer-events: none; }
   #jumpscare img { position: absolute; left: 50%; top: 50%; width: max(100vw, 100vh); height: max(100vw, 100vh); margin: calc(max(100vw, 100vh) / -2) 0 0 calc(max(100vw, 100vh) / -2);
     image-rendering: pixelated; display: none; }
-  #jumpscare.face img.face, #jumpscare.cat img.cat { display: block; }
-  #jumpscare.face img.face { animation: jsZoom 1s cubic-bezier(.15, .9, .25, 1) both, jsShake 0.08s steps(2) infinite; }
-  #jumpscare.cat { background: #fad6e2; }
-  #jumpscare.cat img.cat { width: min(80vw, 80vh); height: min(80vw, 80vh); margin: calc(min(80vw, 80vh) / -2) 0 0 calc(min(80vw, 80vh) / -2);
-    animation: catPop 0.7s cubic-bezier(.3, 1.7, .5, 1) both, catSpin 0.6s linear infinite; }
+  #jumpscare.sup img.sup, #jumpscare.ent img.ent, #jumpscare.uncle img.uncle { display: block; }
+  #jumpscare.sup img.sup, #jumpscare.ent img.ent { animation: jsZoom 1s cubic-bezier(.15, .9, .25, 1) both, jsShake 0.08s steps(2) infinite; }
+  #jumpscare.uncle { background: #7fe0d0; }
+  #jumpscare.uncle img.uncle { width: min(84vw, 84vh); height: min(84vw, 84vh); margin: calc(min(84vw, 84vh) / -2) 0 0 calc(min(84vw, 84vh) / -2);
+    animation: catPop 0.6s cubic-bezier(.3, 1.7, .5, 1) both, uncleBob 0.5s ease-in-out infinite; }
+  @keyframes uncleBob { 0%, 100% { translate: -3% 0; rotate: -4deg; } 50% { translate: 3% -2%; rotate: 4deg; } }
   @keyframes jsZoom { 0% { scale: 0.55; filter: brightness(4) contrast(2.2); } 12% { scale: 1.08; filter: brightness(1.6) contrast(1.8); } 100% { scale: 1.32; filter: brightness(1) contrast(1.4); } }
   @keyframes jsShake { 0% { translate: -18px 10px; } 50% { translate: 16px -12px; } 100% { translate: -8px 14px; } }
   @keyframes catPop { 0% { scale: 0.05; } 100% { scale: 1; } }
@@ -101,6 +102,49 @@
   #endbody { max-width: 980px; font-size: clamp(17px, 1.9vw, 24px); line-height: 1.7; color: #d4dbe0; }
   #endbody p { margin: 0.2em 0; }
   #endnote { color: var(--amber-ink); font-size: 17px; min-height: 1.2em; }
+  #ending { overflow-y: auto; justify-content: safe center; padding-top: 24px; padding-bottom: 24px; }
+  #ending .menu { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px 22px; max-width: 980px; }
+  #ending .menu button { font-size: 24px; }
+  #titletoast { color: var(--amber-ink); font-size: 17px; margin-top: 18px; border-left: 3px solid var(--amber); padding-left: 10px; }
+  /* 장 제목 카드 */
+  #chcard { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(2,6,10,0.78) 0%, rgba(2,6,10,0.0) 70%); opacity: 0; }
+  #chcard.show { animation: ccFade 2.8s ease both; }
+  @keyframes ccFade { 0% { opacity: 0; } 15% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+  #chcard .cct { font-family: var(--font-b); font-size: clamp(56px, 10vw, 120px); color: #c7e6ff; text-shadow: 0 0 18px rgba(120,190,255,0.35); }
+  #chcard .ccl { font-size: 22px; color: #7fa2b5; margin-top: 4px; }
+  #chcard .ccn { font-family: var(--font-b); font-size: clamp(30px, 4vw, 52px); color: #e8f6ff; }
+  /* 챕터 선택 카드: CRT 부팅 화면 느낌 */
+  #chaptergrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; width: min(1000px, 100%); max-height: 62vh; overflow-y: auto; }
+  .chcardbtn { background: #020407; border: 3px solid #2c4a5c; padding: 16px 12px 18px; text-align: center; display: flex; flex-direction: column; gap: 4px;
+    background-image: repeating-linear-gradient(0deg, rgba(160,210,255,0.05) 0 2px, transparent 2px 4px); }
+  .chcardbtn:hover, .chcardbtn:focus-visible { border-color: var(--line); }
+  .chcardbtn:hover::before, .chcardbtn:focus-visible::before { content: ''; }
+  .chcardbtn .cht { font-family: var(--font-b); font-size: 40px; color: #c7e6ff; }
+  .chcardbtn .chl { font-size: 15px; color: #7fa2b5; }
+  .chcardbtn .chn { font-family: var(--font-b); font-size: 22px; color: #e8f6ff; }
+  .chcardbtn.locked { opacity: 0.35; cursor: default; }
+  /* 종이 문서 */
+  .paper { background: #e9e6dc; color: #1c1d1f; width: min(560px, 92vw); padding: 34px 38px 22px; text-align: left; box-shadow: 0 10px 40px rgba(0,0,0,0.6); transform: rotate(-0.6deg); }
+  #docbody p { margin: 0 0 12px; font-size: 20px; line-height: 1.55; }
+  #docbody p:first-child { font-family: var(--font-b); font-size: 22px; border-bottom: 2px solid #1c1d1f; padding-bottom: 10px; margin-bottom: 18px; }
+  .papernote { font-size: 14px; color: #6a6a66; margin-top: 18px; text-align: right; }
+  /* 가짜 브라우저 멈춤 창 (일부러 운영체제 창처럼) */
+  #freeze { background: rgba(0,0,0,0.25); }
+  .fzbox { background: #f3f3f3; color: #202124; width: min(460px, 92vw); padding: 22px 24px 18px; text-align: left; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif; }
+  .fzhead { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+  .fzbody { font-size: 14px; line-height: 1.5; color: #3c4043; margin-bottom: 18px; }
+  .fzrow { display: flex; justify-content: flex-end; gap: 10px; }
+  .fzrow button { font-family: inherit; font-size: 14px; color: #1a73e8; background: #fff; border: 1px solid #dadce0; border-radius: 4px; padding: 8px 16px; }
+  .fzrow button:hover::before, .fzrow button:focus-visible::before { content: ''; }
+  .fzrow button:hover { background: #e8f0fe; }
+  #typer { position: fixed; left: -9999px; top: 0; width: 200px; opacity: 0; }
+  #cctvhud { position: fixed; inset: 0; pointer-events: none; }
+  #cctvhud .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 2px, transparent 2px 4px); }
+  #cctvhud .tag { position: absolute; left: 24px; top: 18px; font-size: 20px; color: #e8f2e8; text-shadow: 2px 2px 0 #000; letter-spacing: 0.04em; }
+  #cctvhud .rec { color: #ff4a3a; animation: recBlink 1s steps(2) infinite; }
+  @keyframes recBlink { 50% { opacity: 0.2; } }
   @media (max-height: 560px) {
     #title .menu { margin-top: 8px; gap: 0; }
     #title .menu button { font-size: 20px; padding: 3px 12px; }
@@ -131,7 +175,29 @@
   <div id="clickhint" hidden data-i18n="clickHint">화면을 클릭하면 다시 움직일 수 있습니다</div>
 </div>
 
-<div id="jumpscare" hidden><img class="face" src="tex/js_face.png" alt=""><img class="cat" src="tex/js_cat.png" alt=""></div>
+<div id="jumpscare" hidden><img class="sup" src="tex/js_face.png" alt=""><img class="ent" src="tex/js_entity.png" alt=""><img class="uncle" src="tex/js_uncle.png" alt=""></div>
+
+<!-- 장 제목 카드 (자리에 없을 때) -->
+<div id="chcard" hidden><div class="cct" id="cctime"></div><div class="ccl" id="cclabel"></div><div class="ccn" id="cctitle"></div></div>
+
+<!-- 프린터 출력물 등 종이 문서 -->
+<div class="screen" id="doc" hidden style="background:rgba(0,0,0,0.72)">
+  <div class="paper"><div id="docbody"></div><div class="papernote" data-i18n="docClose">E · 클릭: 닫기</div></div>
+</div>
+
+<!-- 가짜 브라우저 멈춤 -->
+<div class="screen" id="freeze" hidden>
+  <div class="fzbox" role="dialog" aria-labelledby="fztitle">
+    <div class="fzhead" id="fztitle" data-i18n="fzTitle">페이지가 응답하지 않습니다</div>
+    <div class="fzbody" data-i18n="fzBody">이 페이지가 응답하지 않습니다. 기다리거나 페이지를 종료할 수 있습니다.</div>
+    <div class="fzrow"><button id="fzwait" type="button" data-i18n="fzWait">기다리기</button><button id="fzkill" type="button" data-i18n="fzKill">페이지 종료</button></div>
+  </div>
+</div>
+
+<input id="typer" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="terminal input">
+
+<!-- 위에서 내려다보는 추격 화면의 CCTV 표시 -->
+<div id="cctvhud" hidden><div class="scan"></div><div class="tag"><span class="rec">● REC</span> CAM 04 · 4F <span id="cctvtime"></span></div></div>
 
 <div class="screen black" id="loading">
   <div class="sub" data-i18n="gameTitle">야간 평가실</div>
@@ -149,13 +215,16 @@
   <h1 data-i18n="gameTitle">야간 평가실</h1>
   <div class="sub" data-i18n="titleSub">계약직 야간 안전성 평가자 · 근무 3일차</div>
   <div class="menu">
+    <button id="continue" type="button" data-i18n="continue" hidden>이어하기</button>
     <button id="start" type="button" data-i18n="start">근무 시작</button>
+    <button id="chapterbtn" type="button" data-i18n="chapterSel" hidden>챕터 선택</button>
     <button id="albumbtn" type="button" hidden><span data-i18n="album">엔딩 앨범</span><span class="newtag" id="albumnew" data-i18n="albumNew" hidden>새 엔딩</span></button>
     <button id="chickenbtn" type="button">겁쟁이 모드: 꺼짐</button>
     <div id="chickennote" hidden></div>
     <button id="langbtn" type="button">언어 · Language: 한국어</button>
     <button id="titlesettings" type="button" data-i18n="settings">설정</button>
   </div>
+  <div id="titletoast" hidden></div>
   <div class="foot"><span id="endcount">엔딩 0 / 6</span><span data-i18n="titleFoot">테스트판 · WASD 이동 · E 상호작용 · ESC 메뉴</span></div>
 </div>
 
@@ -195,12 +264,11 @@
   <button id="closesettings" type="button" data-i18n="close">닫기</button>
 </div>
 
-<div class="screen" id="confirm" hidden style="background:rgba(0,0,0,0.75)">
-  <div id="confirmq" style="font-family:var(--font-b);font-size:36px"></div>
-  <div class="row">
-    <button class="bigbox" id="yes" type="button" data-i18n="leaveYes">퇴근한다</button>
-    <button class="bigbox" id="no" type="button" data-i18n="leaveNo">돌아간다</button>
-  </div>
+<div class="screen" id="chapters" hidden style="background:rgba(1,3,6,0.96)">
+  <h1 style="font-size:44px" data-i18n="chapterSel">챕터 선택</h1>
+  <div class="note" data-i18n="chapterNote">도달한 장의 처음부터, 그때의 기록으로 다시 시작합니다</div>
+  <div id="chaptergrid"></div>
+  <button id="closechapters" type="button" data-i18n="close">닫기</button>
 </div>
 
 <div class="screen black" id="ending" hidden>
@@ -209,8 +277,11 @@
   <div id="endbody"></div>
   <div id="endnote"></div>
   <div class="menu" id="endbuttons" hidden>
-    <button id="endtotitle" type="button" data-i18n="endToTitle">처음으로</button>
-    <button id="retry" type="button" data-i18n="retry">추격 직전부터 다시</button>
+    <button id="retry" type="button" data-i18n="retry">추격 직전부터</button>
+    <button id="endfromchoice" type="button" data-i18n="endFromChoice">직전 선택부터</button>
+    <button id="endchapters" type="button" data-i18n="chapterSel">챕터 선택</button>
+    <button id="endrestart" type="button" data-i18n="endRestart">처음부터</button>
+    <button id="endtotitle" type="button" data-i18n="toTitle">타이틀로</button>
     <button id="endclose" type="button" data-i18n="close">닫기</button>
   </div>
 </div>

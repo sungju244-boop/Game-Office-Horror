@@ -10,6 +10,9 @@ export const CLIPS = [
   'sfx_elevator', 'sfx_footsteps_far', 'sfx_power_down', 'sfx_crt_on', 'sfx_crt_off', 'sfx_servo', 'sfx_cat', 'sfx_catch',
   'mon_breath', 'mon_static', 'mon_step_1', 'mon_step_2', 'mon_step_3', 'mon_drag', 'mon_roar', 'js_shriek', 'js_stinger',
   'sfx_door_bang', 'sfx_heartbeat', 'mus_hunt', 'mus_cute', 'mus_cute_chase', 'sfx_boing', 'sfx_tick',
+  'sfx_maze_hit', 'sfx_glass_crack', 'sfx_printer', 'sfx_key', 'sfx_keyboard_far', 'sfx_guide', 'sfx_chapter', 'sfx_alarm',
+  'sfx_bsod', 'sfx_maglock', 'sfx_whisper', 'sfx_echo_scream', 'sfx_freeze', 'sfx_desk_tap', 'sfx_chair',
+  'uncle_shansenbu', 'uncle_rangspichiu', 'uncle_hum',
 ];
 
 export class AudioSys {

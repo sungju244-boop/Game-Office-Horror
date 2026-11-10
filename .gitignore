@@ -40,3 +40,8 @@ sysinfo.txt
 /web/_dev.html
 /web/dist/
 __pycache__/
+
+# 브라우저판 로컬 테스트·배포 산출물
+web/_dev.html
+web/_view.html
+web/dist/

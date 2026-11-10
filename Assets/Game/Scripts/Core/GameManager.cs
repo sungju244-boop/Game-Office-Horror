@@ -53,8 +53,10 @@ namespace NightEval
 
         void Start()
         {
-            string storyJson = Res.ReadStreaming("Story/story.json");
-            layoutJson = Res.ReadResourceText("Data/office_layout");
+            // Unity판은 새 이야기(story.json v2)로 옮기기 전까지 이전 이야기·배치를 그대로 쓴다.
+            // 브라우저판은 Story/story.json + Data/office_layout (리부트판)을 쓴다.
+            string storyJson = Res.ReadStreaming("Story/story_legacy.json");
+            layoutJson = Res.ReadResourceText("Data/office_layout_legacy");
             if (storyJson == null || layoutJson == null)
             {
                 Debug.LogError("[야간 평가실] 데이터 파일이 없어 시작할 수 없습니다.");

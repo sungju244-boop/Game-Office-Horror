@@ -291,7 +291,7 @@ def notice():
                     yy = y + 3 + k * 4 + int(rng.integers(-1, 2))
                     d.line([10, yy, 238, yy + int(rng.integers(-4, 5))], fill=(150, 145, 135), width=1)
         y += 26
-    d.text((14, h - 26), "모델 안전성 평가센터", font=font(12), fill=(80, 84, 88))
+    d.text((14, h - 26), "시냅스 코퍼레이션 · 야간 QA", font=font(12), fill=(80, 84, 88))
     d.ellipse([w - 34, 8, w - 14, 28], fill=(160, 40, 40))  # 압정
     save(dirty(img, 0.25, 3), "notice")
 
@@ -301,7 +301,7 @@ def badge(number, scratched, name):
     img = canvas(w, h, (0.92, 0.92, 0.90))
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, w - 1, 34], fill=(46, 66, 86))
-    d.text((8, 8), "평가센터", font=font(12, True), fill=(220, 230, 236))
+    d.text((8, 8), "SYNAPSE", font=font(12, True), fill=(220, 230, 236))
     d.text((8, 20), "EVALUATOR", font=font(12), fill=(170, 186, 196))
     d.rectangle([24, 44, 104, 124], fill=(200, 202, 204), outline=(120, 122, 124))
     if scratched:

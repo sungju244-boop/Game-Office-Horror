@@ -16,10 +16,17 @@ for path in glob.glob(os.path.join(ROOT, "Assets/Game/Scripts/**/*.cs"), recursi
     src = open(path, encoding="utf-8").read()
     for lit in re.findall(r'"((?:[^"\\\n]|\\.)*)"', src):
         chars.update(lit)
-story = open(os.path.join(ROOT, "Assets/StreamingAssets/Story/story.json"), encoding="utf-8").read()
-story = re.sub(r"^\s*//.*$", "", story, flags=re.M)
-for lit in re.findall(r'"((?:[^"\\\n]|\\.)*)"', story):
-    chars.update(lit)
+# 이야기 데이터 (리부트판 + Unity판 이전 이야기) 와 브라우저판 화면 문구
+for rel in ("Assets/StreamingAssets/Story/story.json", "Assets/StreamingAssets/Story/story_legacy.json"):
+    story = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+    story = re.sub(r"^\s*//.*$", "", story, flags=re.M)
+    for lit in re.findall(r'"((?:[^"\\\n]|\\.)*)"', story):
+        chars.update(lit)
+for path in glob.glob(os.path.join(ROOT, "web/js/*.js")):
+    src = open(path, encoding="utf-8").read()
+    for lit in re.findall(r"'((?:[^'\\\n]|\\.)*)'|`((?:[^`\\]|\\.)*)`", src):
+        for part in lit:
+            chars.update(c for c in part if not (ord(c) < 128 and not c.isprintable()))
 # 글리치용 무작위 한글 음절 전체 범위
 chars.update(chr(c) for c in range(0xAC00, 0xD7A4))
 

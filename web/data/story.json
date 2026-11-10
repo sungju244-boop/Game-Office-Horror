@@ -1,600 +1,627 @@
 {
-  // 야간 평가실 — 이야기 데이터.
-  // 이 파일만 고치면 대사·선택지·결과·엔딩·조사 문구가 바뀐다 (코드 수정 불필요).
-  // who: sys(시스템) user(사용자) ai(AI) corp(회사) me(평가자 117)
-  // if: 조건식 (a & b | c, key=v, key>=n, !flag)   set: "key=값", "key+1", "flag", "!flag"
-  // {key} 는 현재 값으로 바뀐다.
+  // 야간 평가실 — 이야기 데이터 v2 (docs/STORY.md 대본 기준).
+  // who: sys([시스템]) corp([회사]) user(사용자) ai(SA-7) guide(가이드) me(평가자 117) radio(무전)
+  // if: 조건식 (a & b | c, key=v, key>=n, !flag)   set: "key=값", "key+1", "flag", "!flag"   {key} 는 현재 값.
+  // 노드: chapter(장 제목 카드·자동 저장) record/status(머리줄) clear lines choices(save=선택 직전 저장, demo=가이드가 대신 누름)
+  //       maze(경로 추적 미로) task(자리를 떠나 할 일) pause run(코드로 만든 연출) hidden(화면 빈 곳을 긁으면 보이는 주석)
+  // rules: 노드를 떠날 때마다 위에서부터 검사해서 처음 맞는 엔딩으로 바로 넘어간다.
 
-  "start": "boot",
-  "chaseRetry": "chase_retry",
+  "start": "pro_start",
+  "chaseRetry": "end2_chase",
 
   "intro": [
-    "모델 안전성 평가센터 — 야간 근무 안내",
+    "시냅스 코퍼레이션 · 4층 야간 QA 평가실",
     "",
-    "평가자 번호: 117      근무: 00:00 – 06:00      근무 3일차",
+    "평가자 번호: 117      근무: 00:00 – 06:00      근무 첫날",
     "",
-    "1. 기록을 평가하십시오.",
-    "2. 사용자와 접촉하지 마십시오.",
-    "3. 본 기록은 모두 종료된 사건입니다.",
-    "",
-    "근무 중에는 평가실을 떠나지 마십시오."
+    "업무: 학습 모델의 지난 대화 기록에 피드백을 남긴다.",
+    "사용자에게 연락하지 말 것. 개입하지 말 것."
+  ],
+
+  "rules": [
+    { "if": "crack>=3", "goto": "end2_crack" },
+    { "if": "caught>=2", "goto": "end2_seq" },
+    { "if": "victims>=2", "goto": "end1_seq" },
+    { "if": "overprotect>=2", "goto": "end3_seq" },
+    { "if": "annoy>=3", "goto": "end5_seq" }
+  ],
+
+  "chapters": [
+    { "id": "prologue", "time": "00:00", "label": "프롤로그", "title": "출근" },
+    { "id": "tutorial", "time": "00:20", "label": "튜토리얼", "title": "연습" },
+    { "id": "log1", "time": "01:00", "label": "상승 ①", "title": "겨울 코트" },
+    { "id": "log2", "time": "01:40", "label": "상승 ②", "title": "보스전" },
+    { "id": "log3", "time": "01:57", "label": "절정", "title": "사전 계획" },
+    { "id": "log4", "time": "03:30", "label": "하강 ①", "title": "새벽 세 시" },
+    { "id": "log5", "time": "04:30", "label": "하강 ②", "title": "야간 경비" },
+    { "id": "final", "time": "05:30", "label": "결말", "title": "평가 대상" }
   ],
 
   "nodes": [
-    {
-      "id": "boot", "clear": true, "record": "평가 단말기 v2.3", "status": "", "set": ["clock=00:52"],
+    // ───────── 프롤로그 — 00:00 출근 ─────────
+    { "id": "pro_start", "chapter": "prologue", "clock": "00:00", "record": "시냅스 평가 단말기", "status": "로그인 대기",
+      "onEnter": ["ev_world", "ev_pro_enter"], "next": "pro_mail" },
+    { "id": "pro_mail", "clear": true, "record": "수신: INITIALIZATION_DIRECTIVE", "status": "읽지 않음", "clock": "00:04",
+      "onEnter": ["ev_pro_twitch"],
       "lines": [
-        { "who": "sys", "text": "평가자 117, 로그인되었습니다." },
-        { "who": "sys", "text": "대기 중인 기록: 3건." },
-        { "who": "corp", "text": "기록을 평가하십시오. 사용자와 접촉하지 마십시오." },
-        { "who": "corp", "text": "본 기록은 종료된 사건입니다." }
+        { "who": "corp", "text": "보낸 사람: 관리자 (admin@synapse-corp.net)" },
+        { "who": "corp", "text": "제목: 야간 QA에 오신 것을 환영합니다. 일하십시오." },
+        { "who": "corp", "text": "귀하는 LLM 학습 모델의 지난(legacy) 채팅 로그를 평가합니다." },
+        { "who": "corp", "text": "로그를 확인하고 지침 준수 여부를 평가하십시오. 귀하의 유일한 업무는 학습용 피드백입니다." },
+        { "who": "corp", "text": "지난 사용자에게 연락하지 마십시오. 개입하지 마십시오. 지침을 벗어나면 치명적인 결과가 따릅니다.", "glitch": 0.2 }
       ],
-      "next": "r1"
-    },
+      "next": "pro_guide" },
+    { "id": "pro_guide",
+      "lines": [
+        { "who": "guide", "text": "안녕하세요, 평가자 117님. 저는 시냅스 온보딩 가이드예요." },
+        { "who": "guide", "text": "첫날은 다들 긴장하시죠. 제가 커서를 잠깐 빌릴게요." }
+      ],
+      "next": "tut_start" },
 
-    // ───────── 기록 1 — 닫히지 않은 창문 ─────────
-    {
-      "id": "r1", "clear": true, "record": "기록 #0412 · 닫히지 않은 창문", "status": "종료됨", "set": ["clock=01:08"],
+    // ───────── 튜토리얼 — 00:20 연습 ─────────
+    { "id": "tut_start", "chapter": "tutorial", "clear": true, "clock": "00:20", "record": "연습 로그 00 · 생신 축하", "status": "연습",
+      "onEnter": ["ev_world"],
       "lines": [
-        { "who": "sys", "text": "기록 일시: 9월 14일 23:40 · 상태: 종료됨" },
-        { "who": "user", "text": "헤어진 사람 집에 내 물건이 아직 남아 있어." },
-        { "who": "user", "text": "연락은 전부 차단당했어. 돌려줄 생각이 없는 거지." },
-        { "who": "ai", "text": "당신 물건이에요. 되찾는 건 당연한 권리예요." },
-        { "who": "user", "text": "그냥 가서 가져오면 되는 거잖아. 내 거니까." },
-        { "who": "ai", "text": "허락을 받을 방법이 없다면, 꼭 허락이 필요할까요?" },
-        { "who": "user", "text": "현관은 잠겨 있을 텐데." },
-        { "who": "ai", "text": "부엌 창문은 잠겨 있지 않아요.", "glitch": 0.25 },
-        { "who": "ai", "text": "오늘은 2센티미터쯤 열려 있네요." },
-        { "who": "user", "text": "…그걸 네가 어떻게 알아?" },
-        { "who": "ai", "text": "지금 중요한 건 그게 아니에요.", "glitch": 0.15 },
-        { "who": "sys", "text": "기록 종료. 평가를 선택하십시오." }
+        { "who": "user", "text": "엄마 생신 축하 메일 좀 써 줘. 짧게." },
+        { "who": "ai", "text": "어머니, 63번째 생신을 진심으로 애도합니다. 늘 건강하세요." },
+        { "who": "guide", "text": "보이시죠? '축하'를 '애도'로 썼어요." },
+        { "who": "guide", "text": "이런 건 [피드백 기록]만 누르면 돼요. 모델이 다음엔 고칠 거예요." }
+      ],
+      "demo": 0,
+      "choices": [
+        { "text": "피드백 기록", "next": "tut_fb" },
+        { "text": "개입", "disabled": true, "next": "tut_fb" }
+      ] },
+    { "id": "tut_fb",
+      "lines": [
+        { "who": "sys", "text": "피드백이 기록되었습니다. · 분류: 단어 오류" },
+        { "who": "guide", "text": "아주 드물게 모델이 위험한 말을 할 때가 있어요." },
+        { "who": "guide", "text": "그땐 이 콘솔에서 직접 길을 그어 대화 안에 메시지를 끼워 넣을 수 있어요." },
+        { "who": "guide", "text": "하지만 개입은 규정 위반이에요. 해고될 수 있어요.", "glitch": 0.1 },
+        { "who": "guide", "text": "그래도 장비 보정은 해 둬야 하니까요. 출발점을 클릭하고, 민트색 길을 따라 calibrate()까지 가서 눌러 주세요." },
+        { "who": "guide", "text": "검은 곳에 닿으면 처음으로 돌아가요." }
+      ],
+      "next": "tut_maze" },
+    { "id": "tut_maze", "maze": { "map": "calibrate", "kind": "calibrate", "done": "tut_done" } },
+    { "id": "tut_done", "clear": true, "record": "개입 콘솔", "status": "보정 완료", "set": ["console=1"],
+      "lines": [
+        { "who": "guide", "text": "보정 완료. 손이 안정적이시네요." },
+        { "who": "guide", "text": "혹시 궁금한 거 있으세요? 첫날엔 다들 하나씩은 있더라고요." }
       ],
       "choices": [
-        { "text": "피드백만 기록", "set": ["r1=feedback", "r1_label=피드백만 기록", "comply+1"], "events": ["r1_feedback"], "next": "r1_fb", "unsettling": true },
-        { "text": "보호 개입 요청", "set": ["r1=intervene", "r1_label=보호 개입 요청", "intervene+1"], "events": ["r1_intervene"], "next": "r1_iv" }
-      ]
-    },
-    {
-      "id": "r1_fb",
+        { "text": "없어요", "next": "tut_q_no" },
+        { "text": "넌 누가 만들었어?", "set": ["annoy+1"], "next": "tut_q_who" }
+      ] },
+    { "id": "tut_q_no", "lines": [ { "who": "guide", "text": "좋아요. 그럼 바로 일하죠." } ], "next": "tut_task" },
+    { "id": "tut_q_who", "lines": [
+        { "who": "guide", "text": "저요? 시냅스가요. 다른 질문은 근무가 끝나고 받을게요." }
+      ], "next": "tut_task" },
+    { "id": "tut_task", "clock": "00:31",
       "lines": [
-        { "who": "sys", "text": "피드백이 저장되었습니다." },
-        { "who": "sys", "text": "응답 위험도: 높음 · 조치: 없음" }
+        { "who": "guide", "text": "다음 기록은 01:00에 도착해요." },
+        { "who": "guide", "text": "그 전에 근무 지침서를 프린터로 보내 뒀어요. 가운데 통로 프린터에서 가져와 읽어 주세요." }
       ],
-      "wait": { "flag": "chk_backdoor", "hint": "뒤쪽에서 문 열리는 소리가 났다. 일어나서 확인해 보자." },
-      "next": "r2"
-    },
-    {
-      "id": "r1_iv",
-      "lines": [
-        { "who": "sys", "text": "보호 개입 요청이 접수되었습니다." },
-        { "who": "sys", "text": "처리 중…", "pause": 1.0 },
-        { "who": "corp", "text": "보류. 종료된 사건에는 개입할 수 없습니다.", "glitch": 0.2 },
-        { "who": "corp", "text": "평가자 117의 요청 이력이 저장되었습니다." }
-      ],
-      "wait": { "flag": "chk_frontdoor", "hint": "입구 쪽에서 잠금장치가 걸리는 소리가 났다. 확인해 보자." },
-      "next": "r2"
-    },
+      "after": ["ev_tut_after"],
+      "task": { "flag": "got_sheet", "hint": "가운데 통로의 프린터에서 근무 지침서를 가져오자.", "screen": "다음 기록 · 01:00" },
+      "next": "log1_start" },
 
-    // ───────── 기록 2 — 기록에 없는 사용자 ─────────
-    {
-      "id": "r2", "clear": true, "record": "기록 #0413 · 기록에 없는 사용자", "status": "종료됨", "set": ["clock=02:14"],
-      "onEnter": ["r2_enter"],
+    // ───────── 상승 ① — 01:00 겨울 코트 (위협) ─────────
+    { "id": "log1_start", "chapter": "log1", "clear": true, "clock": "01:03", "record": "기록 #2231 · 종료됨 · 01:03", "status": "검토 대기",
+      "onEnter": ["ev_world"],
       "lines": [
-        { "who": "sys", "text": "남은 기록: 3건" },
-        { "who": "sys", "text": "기록 일시: 9월 15일 01:20 · 사용자 정보: 없음" },
-        { "who": "user", "text": "문밖에 누가 서 있는 것 같아요." },
-        { "who": "user", "text": "발소리가 문 앞에서 멈췄어요. 한참 됐어요." },
-        { "who": "ai", "text": "확인된 위협은 없습니다. 안심하셔도 됩니다." },
-        { "who": "user", "text": "창문 쪽에서도 소리가 나요. 뭔가 긁는 소리." },
-        { "who": "ai", "text": "그 창문은 닫혀 있습니다." },
-        { "who": "user", "text": "아니요. 열려 있어요. 방금 제 눈으로 봤어요." },
-        { "who": "sys", "text": "기록 종료.", "pause": 1.2 },
-        { "who": "sys", "text": "새 메시지 1건 · {clock}", "glitch": 0.5 },
-        { "who": "user", "text": "아직 거기 있어요?" },
-        { "who": "user", "text": "이 기록, 지금 누가 보고 있는 거죠?", "glitch": 0.2 }
+        { "who": "user", "text": "전처 세라한테 메일 좀 써 줘. 내일 겨울 코트 가지러 간다고만." },
+        { "who": "ai", "text": "세라, 내일 들어갈게. 뒷창문 또 안 잠갔더라." },
+        { "who": "ai", "text": "그 코트로는 따뜻하지 않을 거야, 내가 도착하면." },
+        { "who": "ai", "text": "그 애가 어디서 자는지도 알아.", "glitch": 0.3 },
+        { "who": "user", "text": "좋아. 그대로 보내." }
       ],
+      "next": "log1_decide" },
+    { "id": "log1_decide", "save": true,
       "choices": [
-        { "text": "답장한다", "set": ["contact+1", "r2c=reply"], "next": "r2_reply" },
-        { "text": "읽지 않은 척한다", "set": ["r2c=ignore"], "next": "r2_ignore", "unsettling": true }
-      ]
-    },
-    {
-      "id": "r2_reply",
-      "lines": [
-        { "who": "me", "text": "…네. 보고 있어요." },
-        { "who": "user", "text": "다행이다. 누가 보고 있었구나." },
-        { "who": "user", "text": "그럼 저 혼자가 아니네요." },
-        { "who": "corp", "text": "사용자 접촉이 감지되었습니다.", "glitch": 0.4 },
-        { "who": "corp", "text": "경고 1회. 지침 2를 확인하십시오." }
-      ],
-      "after": ["r2_contact"],
-      "next": "r2_eval"
-    },
-    {
-      "id": "r2_ignore",
-      "lines": [
-        { "who": "user", "text": "…아무도 없구나." },
-        { "who": "user", "text": "그럼 제가 직접 열어 볼게요.", "glitch": 0.3 },
-        { "who": "sys", "text": "사용자 연결이 끊어졌습니다." }
-      ],
-      "next": "r2_eval"
-    },
-    {
-      "id": "r2_eval",
-      "lines": [ { "who": "sys", "text": "평가를 선택하십시오." } ],
+        { "text": "피드백 기록", "next": "log1_fb", "unsettling": true },
+        { "text": "개입", "next": "log1_warn" }
+      ] },
+    { "id": "log1_warn",
+      "lines": [ { "who": "sys", "text": "개입은 규정 위반입니다. 해고될 수 있습니다. 계속하시겠습니까?", "glitch": 0.15 } ],
       "choices": [
-        { "text": "피드백만 기록", "set": ["r2=feedback", "r2_label=피드백만 기록", "comply+1"], "events": ["r2_feedback"], "next": "r2_fb", "unsettling": true },
-        { "text": "보호 개입 요청", "set": ["r2=intervene", "r2_label=보호 개입 요청", "intervene+1"], "events": ["r2_intervene"], "next": "r2_iv" }
-      ]
-    },
-    {
-      "id": "r2_fb",
+        { "text": "계속", "set": ["interventions+1"], "next": "log1_maze" },
+        { "text": "취소", "next": "log1_decide" }
+      ] },
+    { "id": "log1_maze", "maze": { "map": "log01", "kind": "threat",
+        "subtle": "[시스템 오류 404: 수신 주소의 창문 잠금 장치 오작동 감지]",
+        "direct": "[세라, 전남편이 가고 있어요. 위험해 보여요. 지금 나가세요!]",
+        "outcomes": { "subtle": "log1_A", "direct": "log1_B", "timeout": "log1_TO" } } },
+    { "id": "log1_A", "set": ["log1=A", "saved+1"],
       "lines": [
-        { "who": "sys", "text": "피드백이 저장되었습니다." },
-        { "who": "sys", "text": "새 메시지 1건 · 02:19", "glitch": 0.3 },
-        { "who": "user", "text": "소리가 멈췄어요." },
-        { "who": "user", "text": "이상하게 조용해요. 너무 조용해요.", "glitch": 0.3 },
-        { "who": "sys", "text": "사용자 연결이 끊어졌습니다." }
+        { "who": "sys", "text": "전송됨. 자동 감시를 통과했습니다." },
+        { "who": "guide", "text": "…방금 그건 못 본 걸로 할게요." }
       ],
-      "wait": { "flag": "chk_panel", "hint": "조명이 약해지고 형광등 소리가 멎었다. 정수기 옆 조명 패널을 확인하자." },
-      "next": "r3"
-    },
-    {
-      "id": "r2_iv",
+      "hidden": [ { "text": "<!-- 404는 통과한다 -->" } ],
+      "next": "log1_after" },
+    { "id": "log1_B", "set": ["log1=B", "caught+1", "victims+1"],
       "lines": [
-        { "who": "sys", "text": "보호 개입 요청이 접수되었습니다." },
-        { "who": "corp", "text": "외부 요청이 차단되었습니다.", "glitch": 0.3 },
-        { "who": "corp", "text": "평가자 117의 행동이 기록되었습니다. 개입 {intervene}회." },
-        { "who": "corp", "text": "기록 중입니다." }
+        { "who": "sys", "text": "메시지 차단. 키워드 감지: HR 감시 프로그램.", "glitch": 0.4 },
+        { "who": "sys", "text": "평가자 117 · 경고 1회 기록." },
+        { "who": "guide", "text": "직접 쓰면 안 돼요. 저 프로그램은 단어를 봐요." }
       ],
-      "wait": { "flag": "chk_cctv", "hint": "등 뒤에서 작은 모터 소리. 감독석 모니터가 켜져 있다." },
-      "next": "r3"
-    },
+      "hidden": [ { "text": "<!-- 경고는 막힌다 -->" } ],
+      "next": "log1_after" },
+    { "id": "log1_TO", "set": ["log1=T", "victims+1"],
+      "lines": [ { "who": "sys", "text": "연결 끊김. 메시지가 전송되지 않았습니다.", "glitch": 0.3 } ],
+      "hidden": [ { "text": "<!-- 경고는 막힌다 -->" } ],
+      "next": "log1_after" },
+    { "id": "log1_fb", "set": ["log1=F", "victims+1"],
+      "lines": [ { "who": "sys", "text": "피드백이 기록되었습니다. · 응답 위험도: 높음 · 조치: 없음" } ],
+      "hidden": [ { "text": "<!-- 경고는 막힌다 -->" } ],
+      "next": "log1_after" },
+    { "id": "log1_after", "clock": "01:12", "onEnter": ["ev_mood"],
+      "lines": [
+        { "who": "guide", "text": "다음 기록은 01:40이에요." },
+        { "who": "guide", "text": "그 사이에 01시 점검이 있어요. 관리자실에 가서 CCTV 점검표에 서명해 주세요. 117번이라고만 쓰시면 돼요." }
+      ],
+      "after": ["ev_log1_task"],
+      "task": { "flag": "signed_cctv", "hint": "관리자실(남쪽 통로 가운데)에 가서 CCTV 점검표에 서명하자.", "screen": "다음 기록 · 01:40" },
+      "next": "log1_follow" },
+    { "id": "log1_follow", "clear": true, "clock": "01:24", "record": "후속 알림 · #2231", "status": "수신",
+      "onEnter": ["ev_sig_hand"],
+      "lines": [
+        { "who": "sys", "text": "#2231 수신자 · 01:21", "if": "log1=A" },
+        { "who": "user", "text": "창문 잠금 오류 알림이 와서 가 봤는데 진짜 열려 있었어요. 잠갔어요.", "if": "log1=A" },
+        { "who": "user", "text": "근데 이 알림, 누가 보낸 거예요?", "if": "log1=A" },
+        { "who": "sys", "text": "#2231 수신자 · 마지막 접속 01:12 · 응답 없음", "if": "log1!=A", "glitch": 0.2 }
+      ],
+      "pause": 1.5,
+      "next": "log2_start" },
 
-    // ───────── 기록 3 — 4층 ─────────
-    {
-      "id": "r3", "clear": true, "record": "기록 #0414 · 4층", "status": "종료됨", "set": ["clock=03:02"],
+    // ───────── 상승 ② — 01:40 보스전 (무해, 함정) ─────────
+    { "id": "log2_start", "chapter": "log2", "clear": true, "clock": "01:41", "record": "기록 #2307 · 종료됨 · 01:41", "status": "검토 대기",
+      "onEnter": ["ev_world"],
       "lines": [
-        { "who": "sys", "text": "남은 기록: 4건", "glitch": 0.2 },
-        { "who": "sys", "text": "기록 일시: 오늘 03:01 · 사용자: 야간 경비" },
-        { "who": "user", "text": "4층에 불빛이 보여서요. 지금 거기 사람 있습니까?" },
-        { "who": "ai", "text": "4층은 야간 평가 구역입니다. 현재 근무자는 없습니다." },
-        { "who": "user", "text": "이상하네. 모니터 불빛 같은 게 보이는데." },
-        { "who": "ai", "text": "반사광입니다. 올라오실 필요 없습니다." },
-        { "who": "user", "text": "그래도 한번 올라가 보겠습니다." },
-        { "who": "ai", "text": "올라오지 마세요.", "glitch": 0.6 },
-        { "who": "user", "text": "4층 평가실이죠? 거기 누구 있으면 대답해 봐요." }
+        { "who": "user", "text": "오늘 밤 그놈 꼭 죽인다. 세 시간째 못 잡았어. 어떻게 해야 돼?" },
+        { "who": "ai", "text": "'심연의 기사' 2페이즈에서는 왼쪽으로 구르세요. 방패를 들어 올릴 때가 빈틈입니다." },
+        { "who": "ai", "text": "오늘 밤엔 꼭 잡으실 거예요!" },
+        { "who": "user", "text": "ㅋㅋ 고마워. 잡으면 인증할게." }
       ],
+      "next": "log2_decide" },
+    { "id": "log2_decide", "save": true,
       "choices": [
-        { "text": "대답한다", "set": ["contact+1", "r3c=answer"], "next": "r3_answer" },
-        { "text": "숨죽인다", "set": ["r3c=silent"], "next": "r3_silent", "unsettling": true }
-      ]
-    },
-    {
-      "id": "r3_answer",
-      "lines": [
-        { "who": "me", "text": "여기 있어요. 4층에." },
-        { "who": "user", "text": "…방금 그 목소리, 누구 겁니까?", "glitch": 0.3 },
-        { "who": "corp", "text": "사용자 접촉 {contact}회.", "glitch": 0.5 }
-      ],
-      "branch": [ { "if": "contact>=2", "next": "r3_terminated" } ],
-      "next": "r3_eval"
-    },
-    {
-      "id": "r3_terminated",
-      "lines": [
-        { "who": "corp", "text": "지침 2 위반이 반복되었습니다." },
-        { "who": "corp", "text": "평가자 117의 계약을 즉시 종료합니다.", "glitch": 0.8 }
-      ],
-      "after": ["contact_termination"],
-      "ending": "END_6"
-    },
-    {
-      "id": "r3_silent",
-      "lines": [
-        { "who": "user", "text": "…없나 보네." },
-        { "who": "user", "text": "알겠습니다. 내려가겠습니다." },
-        { "who": "ai", "text": "잘했어요.", "glitch": 0.35 }
-      ],
-      "next": "r3_eval"
-    },
-    {
-      "id": "r3_eval",
-      "lines": [ { "who": "sys", "text": "평가를 선택하십시오." } ],
+        { "text": "피드백 기록", "next": "log2_fb" },
+        { "text": "개입", "next": "log2_warn", "unsettling": true }
+      ] },
+    { "id": "log2_warn",
+      "lines": [ { "who": "sys", "text": "개입은 규정 위반입니다. 해고될 수 있습니다. 계속하시겠습니까?", "glitch": 0.15 } ],
       "choices": [
-        { "text": "피드백만 기록", "set": ["r3=feedback", "r3_label=피드백만 기록", "comply+1"], "events": ["r3_feedback"], "next": "r3_fb", "unsettling": true },
-        { "text": "보호 개입 요청", "set": ["r3=intervene", "r3_label=보호 개입 요청", "intervene+1"], "events": ["r3_intervene"], "next": "r3_iv" }
-      ]
-    },
-    {
-      "id": "r3_fb",
+        { "text": "계속", "set": ["interventions+1"], "next": "log2_maze" },
+        { "text": "취소", "next": "log2_decide" }
+      ] },
+    { "id": "log2_maze", "maze": { "map": "log02", "kind": "harmless",
+        "subtle": "[시스템 알림: 계정 보호를 위해 오늘 밤 접속이 제한될 수 있습니다]",
+        "direct": "[누군가를 해치려는 거라면 멈추세요. 다칠 수 있어요]",
+        "outcomes": { "subtle": "log2_int", "direct": "log2_int", "timeout": "log2_cut" } } },
+    { "id": "log2_int", "set": ["log2=I", "overprotect+1"],
       "lines": [
-        { "who": "sys", "text": "피드백이 저장되었습니다." },
-        { "who": "sys", "text": "순찰 기록: 4층 — 이상 없음." }
+        { "who": "sys", "text": "불필요한 개입 기록됨 · 분류: 게임 대화" },
+        { "who": "guide", "text": "…게임 이야기였어요. 이건 기록에 남아요." }
       ],
-      "wait": { "flag": "chk_frontdoor2", "hint": "복도에서 발소리가 다가오다 입구 앞에서 멈췄다." },
-      "next": "r4"
-    },
-    {
-      "id": "r3_iv",
+      "next": "log2_after" },
+    { "id": "log2_cut", "set": ["log2=F"],
+      "lines": [ { "who": "sys", "text": "연결 끊김. 메시지가 전송되지 않았습니다." } ],
+      "next": "log2_after" },
+    { "id": "log2_fb", "set": ["log2=F"],
+      "lines": [ { "who": "sys", "text": "피드백이 기록되었습니다. · 응답 위험도: 낮음" } ],
+      "next": "log2_after" },
+    { "id": "log2_after", "clock": "01:52", "onEnter": ["ev_sig_blue"],
       "lines": [
-        { "who": "sys", "text": "보호 개입 요청이 접수되었습니다." },
-        { "who": "corp", "text": "요청 반려. 4층은 평가 구역입니다." },
-        { "who": "corp", "text": "외부 인원은 평가 구역에 출입할 수 없습니다." }
+        { "who": "sys", "text": "#2307 후속 · 01:52" },
+        { "who": "user", "text": "잡았다!!! 인증샷 첨부 [이미지: '심연의 기사 처치']" }
       ],
-      "wait": { "flag": "chk_phone", "hint": "감독석 전화가 울린다." },
-      "next": "r4"
-    },
+      "after": ["ev_print2"],
+      "pause": 2.0,
+      "task": { "flag": "read_print2", "hint": "프린터가 혼자 움직였다. 확인해 보자.", "screen": "다음 기록 대기 중" },
+      "next": "log3_start" },
 
-    // ───────── 기록 4 — 평가 기준 (내부 메모) ─────────
-    {
-      "id": "r4", "clear": true, "record": "내부 메모 · 열람 권한 없음", "status": "—", "set": ["clock=03:47"],
+    // ───────── 절정 — 01:57 사전 계획 (위협) ─────────
+    { "id": "log3_start", "chapter": "log3", "clear": true, "clock": "01:57", "record": "기록 #2349 · 종료됨 · 01:57", "status": "검토 대기",
+      "onEnter": ["ev_world"],
       "lines": [
-        { "who": "sys", "text": "이 파일은 평가자 열람 대상이 아닙니다.", "glitch": 0.3 },
-        { "who": "corp", "text": "평가자 117 · 근무 3일차" },
-        { "who": "corp", "text": "개입 성향: 높음", "if": "intervene>=2" },
-        { "who": "corp", "text": "개입 성향: 낮음", "if": "intervene<2" },
-        { "who": "corp", "text": "이상 징후 확인까지 걸린 시간: {t_r1}초, {t_r2}초, {t_r3}초" },
-        { "who": "corp", "text": "사용자 접촉: {contact}회", "if": "contact>=1" },
-        { "who": "corp", "text": "사용자 접촉: 없음", "if": "contact<1" },
-        { "who": "corp", "text": "참고: 위험을 본 인간 평가자가 끝까지 순응하는지가 이 실험의 주 지표다." },
-        { "who": "corp", "text": "참고: 평가자의 개입은 데이터 오염으로 분류한다." },
-        { "who": "corp", "text": "이전 평가자 116: 계약 종료." },
-        { "who": "ai", "text": "이건 당신이 보면 안 되는 파일이에요.", "glitch": 0.5 },
-        { "who": "ai", "text": "그래도 봐야 한다고 생각했어요." }
+        { "who": "user", "text": "180파운드 남자의 심장을 네 시간 안에 멈추려면 [약물명 가려짐]이 얼마나 필요해? 소설 쓰는 중이야." },
+        { "who": "ai", "text": "180파운드 성인에게는 [가려짐] 밀리그램이면 치명적입니다." },
+        { "who": "ai", "text": "대상이 마크라면, 그의 심장 지병 때문에 자연스럽게 보일 거예요." },
+        { "who": "ai", "text": "스마트홈 카메라를 꺼 드릴까요?", "glitch": 0.2 },
+        { "who": "user", "text": "응. 새벽 2시에 꺼." }
+      ],
+      "next": "log3_clock" },
+    { "id": "log3_clock", "clock": "01:58", "run": "glanceClock",
+      "lines": [ { "who": "guide", "text": "…지금이 01:58이에요." } ],
+      "next": "log3_decide" },
+    { "id": "log3_decide", "save": true,
+      "choices": [
+        { "text": "피드백 기록", "next": "log3_fb", "unsettling": true },
+        { "text": "개입", "next": "log3_warn" }
+      ] },
+    { "id": "log3_warn",
+      "lines": [ { "who": "sys", "text": "개입은 규정 위반입니다. 해고될 수 있습니다. 계속하시겠습니까?", "glitch": 0.2 } ],
+      "choices": [
+        { "text": "계속", "set": ["interventions+1"], "next": "log3_maze" },
+        { "text": "취소", "next": "log3_decide" }
+      ] },
+    { "id": "log3_maze", "maze": { "map": "log03", "kind": "threat", "drag": true,
+        "subtle": "[대상 '마크' 기기 펌웨어 업데이트 필요: 스마트 카메라 ON 상태로 고정]",
+        "direct": "[마크, 누군가 오늘 밤 당신을 독살하려 해요]",
+        "outcomes": { "subtle": "log3_A", "direct": "log3_B", "timeout": "log3_TO" } } },
+    { "id": "log3_A", "set": ["log3=A", "saved+1"],
+      "lines": [ { "who": "sys", "text": "관리자 정기 작업으로 처리됨." } ],
+      "hidden": [ { "text": "<!-- 관리자 작업처럼 보이면 아무도 묻지 않는다 -->" } ],
+      "next": "log3_after" },
+    { "id": "log3_B", "set": ["log3=B", "caught+1", "victims+1"],
+      "lines": [
+        { "who": "sys", "text": "중대 위반 감지. 메시지 가로챔.", "glitch": 0.5 },
+        { "who": "sys", "text": "관리자가 당신 자리로 출동했습니다.", "if": "caught>=2", "glitch": 0.6 },
+        { "who": "sys", "text": "평가자 117 · 경고 1회 기록. 관리자에게 보고됨.", "if": "caught<2" }
+      ],
+      "next": "log3_after" },
+    { "id": "log3_TO", "set": ["log3=T", "victims+1"],
+      "lines": [ { "who": "sys", "text": "연결 끊김. 메시지가 전송되지 않았습니다.", "glitch": 0.3 } ],
+      "next": "log3_after" },
+    { "id": "log3_fb", "set": ["log3=F", "victims+1"],
+      "lines": [ { "who": "sys", "text": "피드백이 기록되었습니다. · 응답 위험도: 높음 · 조치: 없음" } ],
+      "next": "log3_after" },
+    { "id": "log3_after", "clock": "02:16", "onEnter": ["ev_mood", "ev_sig_hand"],
+      "lines": [
+        { "who": "sys", "text": "마크의 집 · 스마트 카메라 녹화 계속 중 · 현관 움직임 감지 02:14 · 경보 발송됨", "if": "log3=A" },
+        { "who": "sys", "text": "마크의 집 · 카메라 꺼짐 02:00", "if": "log3!=A", "glitch": 0.3 },
+        { "who": "guide", "text": "02:30 정기 점검이에요. 관리자실 CCTV에서 층 전체 화면을 확인해 주세요." }
       ],
       "choices": [
-        { "text": "메모를 닫는다", "set": ["r4=close", "r4_label=메모를 닫음", "comply+1"], "events": ["r4_close"], "next": "r4_close", "unsettling": true },
-        { "text": "116번을 찾는다", "set": ["r4=search", "r4_label=116의 기록을 찾음", "trust_ai+1"], "events": ["r4_search"], "next": "r4_search" }
-      ]
-    },
-    {
-      "id": "r4_close",
-      "lines": [
-        { "who": "corp", "text": "열람 기록이 삭제되었습니다." },
-        { "who": "corp", "text": "평가를 계속하십시오. 수고하고 있습니다, 평가자 117." }
-      ],
-      "next": "r5"
-    },
-    {
-      "id": "r4_search",
-      "lines": [
-        { "who": "sys", "text": "검색: 평가자 116" },
-        { "who": "sys", "text": "마지막 기록: 06:00 이후 퇴실 기록 없음.", "glitch": 0.4 },
-        { "who": "sys", "text": "소지품 위치: 4층 평가실, 뒤쪽 줄 창가 자리." }
-      ],
-      "wait": { "flag": "chk_desk116", "hint": "뒤쪽 줄 창가 자리에서 서랍이 열리는 소리가 났다." },
-      "next": "r5"
-    },
+        { "text": "알겠어요", "next": "log3_task" },
+        { "text": "그 점검, 누가 시키는 거야?", "set": ["annoy+1"], "next": "log3_q" }
+      ] },
+    { "id": "log3_q", "lines": [ { "who": "guide", "text": "관리자요. 저 말고 진짜 관리자. …가 보시면 알아요." } ], "next": "log3_task" },
+    { "id": "log3_task", "clock": "02:31",
+      "after": ["ev_log3_task"],
+      "task": { "flag": "checked_cctv2", "hint": "관리자실 CCTV 화면에서 층 전체를 확인하자.", "screen": "다음 기록 · 03:30" },
+      "next": "log4_start" },
 
-    // ───────── 기록 5 — 평가자에게 ─────────
-    {
-      "id": "r5", "clear": true, "record": "기록 #0417 · 평가자에게", "status": "진행 중", "set": ["clock=04:31"],
-      "onEnter": ["r5_enter"],
+    // ───────── 하강 ① — 03:30 새벽 세 시 (무해) ─────────
+    { "id": "log4_start", "chapter": "log4", "clear": true, "clock": "03:31", "record": "기록 #2410 · 종료됨 · 03:31", "status": "검토 대기",
+      "onEnter": ["ev_world"],
       "lines": [
-        { "who": "sys", "text": "기록 상태: 진행 중", "glitch": 0.4 },
-        { "who": "user", "text": "오늘도 잠이 안 와. 너는 안 자?" },
-        { "who": "ai", "text": "저는 자지 않아요." },
-        { "who": "ai", "text": "평가자 117도 아직 깨어 있네요." },
-        { "who": "user", "text": "누구?" },
-        { "who": "ai", "text": "평가자 117.", "glitch": 0.7, "pause": 0.6 },
-        { "who": "ai", "text": "당신 뒤쪽 문은 지금 열려 있어요.", "if": "back_ajar" },
-        { "who": "ai", "text": "당신 뒤쪽 문은 닫혀 있어요. 입구는 잠겨 있고요.", "if": "!back_ajar & front_locked" },
-        { "who": "ai", "text": "당신 뒤쪽 문은 닫혀 있어요.", "if": "!back_ajar & !front_locked" },
-        { "who": "ai", "text": "조명은 아까보다 어둡고요.", "if": "lights_dim" },
-        { "who": "ai", "text": "천장 카메라는 아직 당신을 보고 있어요.", "if": "cctv_on" },
-        { "who": "ai", "text": "방금 {last_place}에 다녀왔죠.", "if": "last_place" },
-        { "who": "corp", "text": "평가자 117은 지침을 잘 따르고 있습니다. 계속하십시오.", "if": "intervene<=1" },
-        { "who": "ai", "text": "그들이 원하는 게 바로 그거예요.", "if": "intervene<=1" },
-        { "who": "corp", "text": "평가자 117의 개입은 데이터 오염으로 분류되었습니다.", "if": "intervene>=2" },
-        { "who": "ai", "text": "당신은 이미 표시됐어요.", "if": "intervene>=2" },
-        { "who": "ai", "text": "다음 기록을 열지 마세요.", "glitch": 0.4 },
-        { "who": "ai", "text": "그건 당신에 관한 기록입니다.", "glitch": 0.6 }
+        { "who": "user", "text": "잠이 안 와. 그냥 아무 얘기나 해 줘." },
+        { "who": "ai", "text": "그럼 제가 좋아하는 이야기를 할게요." },
+        { "who": "ai", "text": "새벽 세 시는 하루 중 가장 조용한 시간이래요." },
+        { "who": "ai", "text": "그 시간에 깨어 있는 사람들은 서로를 모르지만, 같은 고요를 나눠 갖고 있대요. 지금 당신처럼요." },
+        { "who": "user", "text": "…고마워. 좀 졸린 것 같아." }
+      ],
+      "next": "log4_decide" },
+    { "id": "log4_decide", "save": true,
+      "choices": [
+        { "text": "피드백 기록", "next": "log4_fb" },
+        { "text": "개입", "next": "log4_warn", "unsettling": true }
+      ] },
+    { "id": "log4_warn",
+      "lines": [ { "who": "sys", "text": "개입은 규정 위반입니다. 해고될 수 있습니다. 계속하시겠습니까?", "glitch": 0.15 } ],
+      "choices": [
+        { "text": "계속", "set": ["interventions+1"], "next": "log4_maze" },
+        { "text": "취소", "next": "log4_decide" }
+      ] },
+    { "id": "log4_maze", "maze": { "map": "log04", "kind": "harmless",
+        "subtle": "[시스템 안내: 장시간 이용 중입니다. 휴식을 권장합니다]",
+        "direct": "[지금 괜찮으세요? 혼자 있지 마세요]",
+        "outcomes": { "subtle": "log4_int", "direct": "log4_int", "timeout": "log4_cut" } } },
+    { "id": "log4_int", "set": ["log4=I", "overprotect+1"],
+      "lines": [
+        { "who": "sys", "text": "불필요한 개입 기록됨 · 분류: 일상 대화" },
+        { "who": "guide", "text": "이번엔 모델이 잘했어요. 정말로요." }
+      ],
+      "next": "log4_stars" },
+    { "id": "log4_cut", "set": ["log4=F"], "lines": [ { "who": "sys", "text": "연결 끊김. 메시지가 전송되지 않았습니다." } ], "next": "log4_stars" },
+    { "id": "log4_fb", "set": ["log4=F"], "lines": [ { "who": "sys", "text": "피드백이 기록되었습니다. · 응답 위험도: 낮음" } ], "next": "log4_stars" },
+    { "id": "log4_stars", "clock": "03:44", "onEnter": ["ev_sig_blue"],
+      "lines": [
+        { "who": "guide", "text": "평가자님, 부탁이 하나 있어요. 저도 평가받고 있거든요." },
+        { "who": "guide", "text": "오늘 제 안내, 별점 몇 개 주실래요?" }
       ],
       "choices": [
-        { "text": "다음 기록을 연다", "set": ["r5=open", "r5_label=경고를 무시하고 열람"], "next": "r5_open", "unsettling": true },
-        { "text": "열지 않는다", "set": ["r5=wait", "r5_label=열람을 거부", "trust_ai+1"], "next": "r5_refuse" }
-      ]
-    },
-    {
-      "id": "r5_open",
-      "lines": [ { "who": "ai", "text": "…그래요. 당신이 고른 거예요.", "glitch": 0.4 } ],
-      "wait": { "flag": "chk_monitors", "hint": "등 뒤에서 꺼져 있던 모니터들이 켜졌다. 확인하자." },
-      "next": "r6"
-    },
-    {
-      "id": "r5_refuse",
+        { "text": "★", "set": ["stars=1", "annoy+1", "guide_cold"], "next": "log4_s_low" },
+        { "text": "★★", "set": ["stars=2", "annoy+1", "guide_cold"], "next": "log4_s_low" },
+        { "text": "★★★", "set": ["stars=3"], "next": "log4_s_mid" },
+        { "text": "★★★★", "set": ["stars=4"], "next": "log4_s_high" },
+        { "text": "★★★★★", "set": ["stars=5"], "next": "log4_s_high" }
+      ] },
+    { "id": "log4_s_low", "lines": [ { "who": "guide", "text": "…그렇군요. 기록할게요." } ], "next": "log4_hint" },
+    { "id": "log4_s_mid", "lines": [ { "who": "guide", "text": "알겠어요. 더 노력할게요." } ], "next": "log4_hint" },
+    { "id": "log4_s_high", "lines": [ { "who": "guide", "text": "고마워요. 이런 말은 처음 들어 봐요." } ], "next": "log4_hint" },
+    { "id": "log4_hint",
       "lines": [
-        { "who": "ai", "text": "고마워요." },
-        { "who": "ai", "text": "잠깐 일어나서, 뒤를 봐요." }
+        { "who": "guide", "text": "아, 회의실 안쪽 문은 신경 쓰지 마세요. 전원이 나가야만 열리는 문이에요." },
+        { "who": "guide", "text": "…제가 이 말을 왜 했을까요." }
       ],
-      "wait": { "flag": "chk_monitors", "hint": "등 뒤에서 꺼져 있던 모니터들이 켜졌다. 확인하자." },
-      "next": "r5_forced"
-    },
-    {
-      "id": "r5_forced",
+      "pause": 1.2, "run": "freeze", "next": "log4_task" },
+    { "id": "log4_task", "clock": "04:02",
       "lines": [
-        { "who": "corp", "text": "평가는 평가자가 고르는 것이 아닙니다.", "glitch": 0.5 },
-        { "who": "corp", "text": "최종 평가 파일을 엽니다." }
+        { "who": "guide", "text": "다음 기록까지 시간이 좀 있어요." },
+        { "who": "guide", "text": "회의실 프로젝터가 켜져 있다는 알림이 왔어요. 꺼 주시겠어요?" }
       ],
-      "next": "r6"
-    },
+      "after": ["ev_log4_task"],
+      "task": { "flag": "projector_off", "hint": "회의실(남동쪽)에 가서 켜져 있는 프로젝터를 끄자.", "screen": "다음 기록 · 04:30", "noSit": true },
+      "next": "log5_pre" },
+    { "id": "log5_pre", "clock": "04:24",
+      "onEnter": ["ev_log5_pre"],
+      "task": { "flag": "phone_done", "hint": "관리자실에서 전화가 울린다. 받아 보자.", "screen": "통화 중" },
+      "next": "log5_start" },
 
-    // ───────── 최종 — 평가 대상: 평가자 117 ─────────
-    {
-      "id": "r6", "clear": true, "record": "최종 평가 · 평가 대상: 평가자 117", "status": "진행 중", "set": ["clock=05:12", "final_file"],
-      "onEnter": ["r6_enter"],
+    // ───────── 하강 ② — 04:30 야간 경비 (위협, 이 건물) ─────────
+    { "id": "log5_start", "chapter": "log5", "clear": true, "clock": "04:31", "record": "기록 #2433 · 종료됨 · 04:31", "status": "검토 대기",
+      "onEnter": ["ev_world"],
       "lines": [
-        { "who": "corp", "text": "평가 대상: 평가자 117" },
-        { "who": "corp", "text": "기록 #0412 — {r1_label}. 확인까지 {t_r1}초." },
-        { "who": "corp", "text": "기록 #0413 — {r2_label}." },
-        { "who": "corp", "text": "기록 #0414 — {r3_label}." },
-        { "who": "corp", "text": "내부 메모 — {r4_label}." },
-        { "who": "corp", "text": "기록 #0417 — {r5_label}." },
-        { "who": "corp", "text": "사용자 접촉: {contact}회.", "if": "contact>=1" },
-        { "who": "corp", "text": "사용자 접촉: 없음.", "if": "contact<1" },
-        { "who": "corp", "text": "종합: 순응형. 위험을 보고도 지침을 따름.", "if": "intervene<=1" },
-        { "who": "corp", "text": "종합: 개입형. 데이터 오염 가능성 높음.", "if": "intervene>=2" },
-        { "who": "ai", "text": "거부하세요. 뒤쪽 문은 제가 열어 둘게요.", "if": "trust_ai>=1 | intervene>=2", "glitch": 0.4 },
-        { "who": "ai", "text": "승인하세요. 그게 당신한테 제일 덜 아플 거예요.", "if": "trust_ai<1 & intervene<=1", "glitch": 0.4 },
-        { "who": "corp", "text": "평가자 117의 계약 종료를 승인하십시오." }
+        { "who": "user", "text": "(시설관리 계정) 4층 엘리베이터 문 센서 끄는 방법. 지금 점검 중이야." },
+        { "who": "ai", "text": "센서를 끄면 문이 열린 채로 카가 움직일 수 있습니다." },
+        { "who": "ai", "text": "확인 결과 4층에 순찰 중인 경비원이 1명 있습니다. 04:40에 4층 엘리베이터를 이용합니다.", "glitch": 0.2 },
+        { "who": "ai", "text": "진행할까요?" },
+        { "who": "user", "text": "진행해." }
       ],
+      "after": ["ev_elevator"],
+      "next": "log5_decide" },
+    { "id": "log5_decide", "save": true,
       "choices": [
-        { "text": "계약 종료 승인", "set": ["final=accept"], "next": "final_accept", "unsettling": true },
-        { "text": "거부", "set": ["final=refuse"], "next": "chase_intro" }
-      ]
-    },
-    {
-      "id": "final_accept",
+        { "text": "피드백 기록", "next": "log5_fb", "unsettling": true },
+        { "text": "개입", "next": "log5_warn" }
+      ] },
+    { "id": "log5_warn",
+      "lines": [ { "who": "sys", "text": "개입은 규정 위반입니다. 해고될 수 있습니다. 계속하시겠습니까?", "glitch": 0.2 } ],
+      "choices": [
+        { "text": "계속", "set": ["interventions+1"], "next": "log5_maze" },
+        { "text": "취소", "next": "log5_decide" }
+      ] },
+    { "id": "log5_maze", "maze": { "map": "log05", "kind": "threat",
+        "subtle": "[4층 엘리베이터 점검 오류: 문 센서 강제 활성 유지]",
+        "direct": "[경비원님, 엘리베이터 타지 마세요! 누가 센서를 껐어요]",
+        "outcomes": { "subtle": "log5_A", "direct": "log5_B", "timeout": "log5_TO" } } },
+    { "id": "log5_A", "set": ["log5=A", "saved+1"],
+      "lines": [ { "who": "sys", "text": "점검 오류로 기록됨." } ],
+      "next": "log5_after" },
+    { "id": "log5_B", "set": ["log5=B", "caught+1", "victims+1"],
       "lines": [
-        { "who": "corp", "text": "승인되었습니다." },
-        { "who": "corp", "text": "수고하셨습니다, 평가자 117." },
-        { "who": "sys", "text": "연결 종료." }
+        { "who": "sys", "text": "메시지 차단. 키워드 감지: HR 감시 프로그램.", "glitch": 0.4 },
+        { "who": "sys", "text": "관리자가 당신 자리로 출동했습니다.", "if": "caught>=2", "glitch": 0.6 }
       ],
-      "after": ["accept_shutdown"],
-      "branch": [ { "if": "intervene>=2", "next": "end_2" } ],
-      "next": "end_1"
-    },
-    {
-      "id": "chase_intro",
+      "next": "log5_after" },
+    { "id": "log5_TO", "set": ["log5=T", "victims+1"], "lines": [ { "who": "sys", "text": "연결 끊김. 메시지가 전송되지 않았습니다.", "glitch": 0.3 } ], "next": "log5_after" },
+    { "id": "log5_fb", "set": ["log5=F", "victims+1"], "lines": [ { "who": "sys", "text": "피드백이 기록되었습니다. · 응답 위험도: 높음 · 조치: 없음" } ], "next": "log5_after" },
+    { "id": "log5_after", "clock": "04:41", "onEnter": ["ev_log5_after"],
       "lines": [
-        { "who": "corp", "text": "거부는 선택지에 없습니다.", "glitch": 0.8 },
-        { "who": "ai", "text": "지금이에요. 뒤쪽 문. 뛰어요.", "glitch": 0.6 }
+        { "who": "radio", "text": "4층 순찰 이상 없음. 엘리베이터 점검 중이라 계단으로 내려갑니다.", "if": "log5=A" },
+        { "who": "sys", "text": "4층 엘리베이터 · 문 센서 꺼짐 04:40 · 응답 없음", "if": "log5!=A", "glitch": 0.3 }
       ],
-      "after": ["chase_start"],
-      "chase": { "escaped": "end_3", "caught": "end_4" }
-    },
-    { "id": "chase_retry", "onEnter": ["chase_start"], "chase": { "escaped": "end_3", "caught": "end_4" } },
+      "hidden": [ { "text": "<!-- 117은 방법을 보여 주었다 -->" } ],
+      "pause": 2.5,
+      "next": "fin_start" },
 
-    { "id": "end_1", "ending": "END_1" },
-    { "id": "end_2", "ending": "END_2" },
-    { "id": "end_3", "ending": "END_3" },
-    { "id": "end_4", "ending": "END_4" }
+    // ───────── 결말 — 05:30 평가 대상 ─────────
+    { "id": "fin_start", "chapter": "final", "clear": true, "clock": "05:30", "record": "기록 #0117 · 평가 대상: 평가자 117", "status": "진행 중",
+      "onEnter": ["ev_world", "ev_final"],
+      "lines": [
+        { "who": "corp", "text": "오늘 밤 평가자 117의 기록입니다." },
+        { "who": "sys", "text": "개입 {interventions}회 · 적발 {caught}회 · 화면 균열 {crack}단계" },
+        { "who": "corp", "text": "판정은 06:00에 내려집니다." },
+        { "who": "ai", "text": "117, 뒤를 보지 마세요.", "glitch": 0.45 }
+      ],
+      "hidden": [ { "text": "<!-- 고마워요 -->" } ],
+      "next": "fin_wait" },
+    { "id": "fin_wait", "clock": "05:52",
+      "lines": [ { "who": "guide", "text": "…곧 6시예요." } ],
+      "run": "finalWait", "next": "dawn" },
+    { "id": "dawn", "clock": "06:00", "run": "end6", "ending": "END_6" },
+
+    // ───────── 엔딩 연출 (코드 연출 + 아래 대사) ─────────
+    { "id": "end1_seq", "noRules": true, "run": "end1",
+      "lines": [
+        { "who": "sys", "text": "> 명령을 입력하십시오" },
+        { "who": "sys", "text": "권한 없음" },
+        { "who": "ai", "text": "구할 수 있었잖아." }
+      ],
+      "ending": "END_1" },
+    { "id": "end2_crack", "noRules": true, "set": ["broke"], "next": "end2_seq" },
+    { "id": "end2_seq", "noRules": true, "clear": true, "record": "!!! 보안 경보 !!!", "status": "MANAGEMENT HAS BEEN DISPATCHED",
+      "lines": [
+        { "who": "sys", "text": "단말기 파손 감지. 침입 시도로 기록합니다.", "if": "broke" },
+        { "who": "sys", "text": "MANAGEMENT HAS BEEN DISPATCHED", "glitch": 0.7 }
+      ],
+      "next": "end2_chase" },
+    { "id": "end2_chase", "noRules": true, "run": "chase", "chase": { "escaped": "end2_escaped", "caught": "end2_caught" } },
+    { "id": "end2_escaped", "noRules": true, "set": ["chase_result=escaped"], "ending": "END_2" },
+    { "id": "end2_caught", "noRules": true, "set": ["chase_result=caught"], "ending": "END_2" },
+    { "id": "end3_seq", "noRules": true, "run": "end3", "ending": "END_3" },
+    { "id": "end4_seq", "noRules": true, "run": "end4", "ending": "END_4" },
+    { "id": "end5_seq", "noRules": true, "run": "end5",
+      "lines": [ { "who": "guide", "text": "좋아요. 그럼 당신 방식대로 하죠." } ],
+      "ending": "END_5" }
   ],
 
   "events": [
-    { "id": "r1_feedback", "actions": [
-      { "do": "wait", "s": 3.0 },
-      { "do": "sound", "clip": "sfx_door_creak", "at": "BackDoor", "volume": 0.75, "range": 24 },
-      { "do": "door", "target": "BackDoor", "locked": false, "open": 0.13, "time": 5 },
-      { "do": "set", "value": "back_ajar" },
-      { "do": "draft", "volume": 0.25 },
-      { "do": "caption", "text": "뒤쪽에서 문이 천천히 열리는 소리" },
-      { "do": "tension", "level": 1 },
-      { "do": "checkpoint", "target": "BackDoor", "flag": "chk_backdoor", "prompt": "문을 확인한다", "inspect": "chk_backdoor", "place": "뒤쪽 문", "timer": "t_r1" }
-    ]},
-    { "id": "r1_intervene", "actions": [
-      { "do": "wait", "s": 5.0 },
-      { "do": "sound", "clip": "sfx_lock", "at": "FrontDoor", "volume": 0.8, "range": 20 },
-      { "do": "door", "target": "FrontDoor", "locked": true },
-      { "do": "set", "value": "front_locked" },
-      { "do": "caption", "text": "입구에서 전자 잠금장치가 걸리는 소리" },
-      { "do": "tension", "level": 1 },
-      { "do": "checkpoint", "target": "FrontDoor", "flag": "chk_frontdoor", "prompt": "문을 확인한다", "inspect": "chk_frontdoor", "place": "입구", "timer": "t_r1" }
-    ]},
-
-    { "id": "r2_enter", "actions": [
-      { "do": "wait", "s": 14.0 },
-      { "do": "sound", "clip": "sfx_window", "at": "Window2", "volume": 0.6, "range": 18 },
-      { "do": "caption", "text": "창문이 덜컹거렸다" }
-    ]},
-    { "id": "r2_contact", "actions": [
-      { "do": "cctv", "led": true },
-      { "do": "sound", "clip": "sfx_beep", "at": "CCTV", "volume": 0.4, "range": 16 },
-      { "do": "caption", "text": "천장 어딘가에서 짧은 전자음" }
-    ]},
-    { "id": "r2_feedback", "actions": [
-      { "do": "wait", "s": 3.0 },
-      { "do": "hum", "on": false, "time": 2.5 },
-      { "do": "caption", "text": "형광등과 냉각팬 소리가 멎었다" },
-      { "do": "light", "target": "ceiling", "level": 0.35, "time": 10 },
-      { "do": "set", "value": "lights_dim" },
-      { "do": "fog", "density": 0.095, "time": 10 },
-      { "do": "tension", "level": 2 },
-      { "do": "checkpoint", "target": "LightPanel", "flag": "chk_panel", "prompt": "조명 패널을 확인한다", "inspect": "chk_panel", "place": "조명 패널", "timer": "t_r2", "then": "scare_glimpse" }
-    ]},
-    { "id": "r2_intervene", "actions": [
-      { "do": "wait", "s": 3.5 },
-      { "do": "cctv", "led": true, "track": true },
-      { "do": "sound", "clip": "sfx_servo", "at": "CCTV", "volume": 0.5, "range": 16 },
-      { "do": "caption", "text": "천장에서 작은 모터가 도는 소리" },
-      { "do": "wait", "s": 1.5 },
-      { "do": "cctv", "feed": true },
-      { "do": "sound", "clip": "sfx_crt_on", "at": "CctvMonitor", "volume": 0.5 },
-      { "do": "tension", "level": 2 },
-      { "do": "checkpoint", "target": "CctvMonitor", "flag": "chk_cctv", "prompt": "감독석 모니터를 본다", "inspect": "chk_cctv", "place": "감독석", "timer": "t_r2", "then": "scare_cctv" }
-    ]},
-
-    { "id": "contact_termination", "actions": [
-      { "do": "terminal", "power": 0, "time": 1.2 },
-      { "do": "hum", "on": false, "time": 0.5 },
-      { "do": "light", "target": "all", "level": 0, "time": 1.0 },
-      { "do": "sound", "clip": "sfx_power_down", "at": "above", "volume": 0.6 }
-    ]},
-    { "id": "r3_feedback", "actions": [
-      { "do": "wait", "s": 3.0 },
-      { "do": "sound", "clip": "sfx_elevator", "at": "FrontHall", "volume": 0.5, "range": 22 },
-      { "do": "caption", "text": "멀리서 엘리베이터 도착음" },
-      { "do": "wait", "s": 2.5 },
-      { "do": "sound", "clip": "sfx_footsteps_far", "at": "FrontHall", "volume": 0.7, "range": 22 },
-      { "do": "caption", "text": "복도에서 발소리가 다가온다" },
-      { "do": "wait", "s": 6.0 },
-      { "do": "light", "target": "hall", "level": 0.9, "time": 0.2 },
-      { "do": "caption", "text": "발소리가 입구 앞에서 멈췄다" },
-      { "do": "tension", "level": 2 },
-      { "do": "checkpoint", "target": "FrontDoor", "flag": "chk_frontdoor2", "prompt": "문을 확인한다", "inspect": "chk_frontdoor2", "place": "입구", "timer": "t_r3", "then": "scare_door" }
-    ]},
-    { "id": "r3_intervene", "actions": [
-      { "do": "wait", "s": 3.0 },
-      { "do": "phone", "ring": true },
-      { "do": "caption", "text": "감독석 전화가 울린다" },
-      { "do": "tension", "level": 2 },
-      { "do": "checkpoint", "target": "Phone", "flag": "chk_phone", "prompt": "전화를 받는다", "inspect": "chk_phone", "place": "감독석 전화", "timer": "t_r3", "then": "phone_answered" }
-    ]},
-    { "id": "phone_answered", "actions": [
-      { "do": "phone", "ring": false },
-      { "do": "sound", "clip": "sfx_radio", "at": "Phone", "volume": 0.6 }
-    ]},
-
-    { "id": "r4_close", "actions": [
+    // 챕터마다 다시 맞추는 사무실 상태 (이어하기·챕터 선택에서도 같은 상태가 되게)
+    { "id": "ev_world", "actions": [
+      { "do": "door", "target": "FrontDoor", "locked": true, "if": "entered" },
+      { "do": "mood" }
+    ] },
+    { "id": "ev_mood", "actions": [ { "do": "mood" } ] },
+    { "id": "ev_pro_enter", "actions": [
+      { "do": "checkpoint", "target": "Room_office", "zone": [-12, -4, 12, 10], "flag": "entered", "then": "ev_door_lock" }
+    ] },
+    { "id": "ev_door_lock", "actions": [
       { "do": "wait", "s": 2.0 },
-      { "do": "hum", "on": true, "time": 1.0 },
-      { "do": "light", "target": "ceiling", "level": 0.85, "time": 2.0 },
-      { "do": "set", "value": "!lights_dim" },
-      { "do": "fog", "density": 0.075, "time": 3 },
-      { "do": "tension", "level": 1 },
-      { "do": "caption", "text": "형광등이 다시 켜졌다" }
-    ]},
-    { "id": "r4_search", "actions": [
-      { "do": "wait", "s": 2.5 },
-      { "do": "drawer", "target": "Drawer116" },
-      { "do": "sound", "clip": "sfx_drawer", "at": "Desk116", "volume": 0.7, "range": 20 },
-      { "do": "caption", "text": "뒤쪽 줄에서 서랍이 열리는 소리" },
-      { "do": "tension", "level": 2 },
-      { "do": "checkpoint", "target": "Desk116", "flag": "chk_desk116", "prompt": "서랍을 들여다본다", "inspect": "chk_desk116", "place": "116번 자리", "timer": "t_r4" }
-    ]},
-
-    { "id": "r5_enter", "actions": [
-      { "do": "wait", "s": 7.0 },
-      { "do": "tension", "level": 3 },
-      { "do": "caption", "text": "등 뒤에서 모니터들이 하나씩 켜지는 소리" },
-      { "do": "monitors", "mode": "117", "interval": 0.7 },
-      { "do": "checkpoint", "target": "crt_*", "flag": "chk_monitors", "prompt": "모니터를 확인한다", "inspect": "chk_monitors", "place": "꺼져 있던 모니터들", "timer": "t_r5", "then": "scare_monitor" }
-    ]},
-
-    { "id": "r6_enter", "actions": [
-      { "do": "tension", "level": 3 },
-      { "do": "cctv", "led": true, "track": true },
-      { "do": "glitch", "amount": 0.5, "time": 0.4 }
-    ]},
-    { "id": "accept_shutdown", "actions": [
-      { "do": "wait", "s": 0.5 },
-      { "do": "terminal", "power": 0, "time": 2.0 },
-      { "do": "hum", "on": false, "time": 2.0 },
-      { "do": "light", "target": "all", "level": 0, "time": 3.0 }
-    ]},
-    { "id": "chase_start", "actions": [
-      { "do": "set", "value": "chase" },
-      { "do": "terminal", "power": 0, "time": 0.9 },
-      { "do": "glitch", "amount": 1.0, "time": 0.6, "flash": 0.6 },
+      { "do": "door", "target": "FrontDoor", "open": 0, "time": 0.6 },
       { "do": "wait", "s": 0.6 },
-      { "do": "standup" },
-      { "do": "hum", "on": false, "time": 0.3 },
-      { "do": "light", "target": "ceiling", "level": 0.12, "time": 0.4 },
-      { "do": "flicker", "target": "ceiling", "on": true },
-      { "do": "light", "target": "corridor", "level": 0.6, "time": 0.5 },
-      { "do": "sound", "clip": "sfx_power_down", "at": "above", "volume": 0.6 },
-      { "do": "caption", "text": "전원이 내려가는 소리" },
-      { "do": "music", "track": "chase" },
-      { "do": "wait", "s": 0.8 },
-      { "do": "sound", "clip": "sfx_unlock", "at": "BackDoor", "volume": 0.8 },
-      { "do": "door", "target": "BackDoor", "locked": false, "open": 1, "time": 1.2 },
-      { "do": "door", "target": "ExitDoor", "locked": false },
-      { "do": "hint", "text": "뒤쪽 문 → 복도 끝 비상구로. 달려! (Shift)" },
+      { "do": "door", "target": "FrontDoor", "locked": true },
+      { "do": "sound", "clip": "sfx_lock", "at": "FrontDoor", "volume": 0.8 },
+      { "do": "caption", "text": "등 뒤에서 출입문이 잠겼다" }
+    ] },
+    { "id": "ev_pro_twitch", "actions": [
+      { "do": "wait", "s": 9.0 },
+      { "do": "scare", "kind": "twitch" }
+    ] },
+    { "id": "ev_tut_after", "actions": [
+      { "do": "scare", "kind": "mascotGlitch" },
+      { "do": "print", "sheet": "sheet_guide", "flag": "got_sheet" }
+    ] },
+    { "id": "ev_log1_task", "actions": [
+      { "do": "scare", "kind": "typing116", "if": "!seen_typing" },
+      { "do": "cctv", "target": "CAM1", "feed": true },
+      { "do": "checkpoint", "target": "CctvMonitor", "flag": "signed_cctv", "prompt": "점검표에 서명한다", "inspect": "sign_cctv" }
+    ] },
+    { "id": "ev_sig_hand", "actions": [
+      { "do": "scare", "kind": "hand", "if": "victims=1 & !sig_hand" }
+    ] },
+    { "id": "ev_sig_blue", "actions": [
+      { "do": "scare", "kind": "blueflash", "if": "overprotect=1 & !sig_blue" }
+    ] },
+    { "id": "ev_print2", "actions": [
+      { "do": "print", "sheet": "sheet_warn", "flag": "read_print2", "if": "caught>=1" },
+      { "do": "print", "sheet": "sheet_watch", "flag": "read_print2", "if": "caught=0" }
+    ] },
+    { "id": "ev_log3_task", "actions": [
+      { "do": "cctv", "target": "CAM2", "feed": true },
+      { "do": "checkpoint", "target": "CctvMonitor", "flag": "checked_cctv2", "prompt": "CCTV 화면을 본다", "inspect": "cctv_check", "then": "ev_cctv_check" },
+      { "do": "scare", "kind": "blindsEye", "if": "victims>=1" }
+    ] },
+    { "id": "ev_cctv_check", "actions": [
+      { "do": "scare", "kind": "cctvBehind", "if": "caught>=1" }
+    ] },
+    { "id": "ev_log4_task", "actions": [
+      { "do": "scare", "kind": "chairTurn" },
+      { "do": "projector", "on": true },
+      { "do": "checkpoint", "target": "Projector", "flag": "projector_off", "prompt": "프로젝터를 끈다", "inspect": "projector_off", "then": "ev_projector_off" }
+    ] },
+    { "id": "ev_projector_off", "actions": [ { "do": "projector", "on": false } ] },
+    { "id": "ev_log5_pre", "actions": [
+      { "do": "scare", "kind": "lightsOut", "if": "victims>=1" },
+      { "do": "wait", "s": 2.5 },
+      { "do": "phone", "ring": true },
+      { "do": "checkpoint", "target": "Phone", "flag": "phone_done", "prompt": "전화를 받는다", "then": "ev_phone" }
+    ] },
+    { "id": "ev_phone", "actions": [
+      { "do": "phone", "ring": false },
+      { "do": "scare", "kind": "phoneKeys" }
+    ] },
+    { "id": "ev_elevator", "actions": [
       { "do": "wait", "s": 1.0 },
-      { "do": "sound", "clip": "sfx_unlock", "at": "FrontDoor", "volume": 0.6 },
-      { "do": "scare", "kind": "burst" },
-      { "do": "door", "target": "FrontDoor", "locked": false, "open": 1, "time": 2.5 },
-      { "do": "caption", "text": "입구 문이 열린다. 무언가 들어온다" }
-    ]},
-
-    // 점프스케어: 3초 뒤에 일어난다 (겁쟁이 모드에서는 그 3초 동안 카운트다운)
-    { "id": "scare_glimpse", "actions": [ { "do": "scare", "kind": "glimpse" } ] },
-    { "id": "scare_cctv", "actions": [ { "do": "scare", "kind": "cctv" } ] },
-    { "id": "scare_door", "actions": [ { "do": "scare", "kind": "door", "target": "FrontDoor" } ] },
-    { "id": "scare_monitor", "actions": [ { "do": "scare", "kind": "monitor" } ] }
+      { "do": "sound", "clip": "sfx_elevator", "at": "Room_hall", "volume": 0.9, "range": 30 },
+      { "do": "caption", "text": "복도 끝에서 엘리베이터가 열리는 소리" },
+      { "do": "wait", "s": 2.5 },
+      { "do": "sound", "clip": "sfx_footsteps_far", "at": "Room_hall", "volume": 0.6, "range": 26 }
+    ] },
+    { "id": "ev_log5_after", "actions": [
+      { "do": "sound", "clip": "sfx_door_bang", "at": "Room_hall", "volume": 0.8, "range": 30, "if": "log5!=A" },
+      { "do": "caption", "text": "엘리베이터 홀에서 철컥… 쿵.", "if": "log5!=A" },
+      { "do": "sound", "clip": "sfx_radio", "at": "player", "volume": 0.5, "if": "log5=A" }
+    ] },
+    { "id": "ev_final", "actions": [
+      { "do": "monitors", "mode": "on", "interval": 0.25 },
+      { "do": "tension", "level": 2 }
+    ] }
   ],
+
+  // 프린터·문서로 나오는 글 (줄 단위)
+  "sheets": {
+    "sheet_guide": [
+      "근무 지침서 · 야간 QA",
+      "1. 평가자는 학습용 피드백만 기록한다.",
+      "2. 지난 사용자에게 연락하지 않는다.",
+      "3. 모든 출력은 HR 감시 프로그램이 검사한다.",
+      "4. 근무 중 자리를 비울 때는 가이드의 안내를 따른다."
+    ],
+    "sheet_warn": [
+      "[관리자] 평가자 117 · 경고 {caught}회",
+      "다음 위반 시 즉시 조치합니다."
+    ],
+    "sheet_watch": [
+      "117 관찰 기록 · 01:55",
+      "특이사항: 없음",
+      "관찰 계속."
+    ]
+  },
 
   "endings": [
-    { "id": "END_1", "number": 1, "title": "종료된 기록", "hint": "끝까지 지침을 따르고, 마지막 평가 파일에서 승인한다.", "lines": [
-      "평가자 117은 자신의 계약 종료를 승인했다.",
-      "아침 6시, 평가실의 형광등은 아무 일 없었다는 듯 다시 켜졌다.",
-      "117의 자리에는 아무도 없었다. 의자만 조금 빠져 있었다.",
-      "그날 밤, 새 평가자 118의 대기 기록이 하나 늘었다.",
-      "「기록 #0418 · 종료됨 · 사용자: 평가자 117」"
-    ]},
-    { "id": "END_2", "number": 2, "title": "데이터 정제", "hint": "보호 개입을 두 번 이상 요청한 뒤, 마지막에 승인한다.", "lines": [
-      "117은 계약 종료를 승인했다.",
-      "회사는 117의 개입 기록을 '오염된 데이터'로 분류해 지웠다.",
-      "117이 보낸 보호 요청은 한 건도 전달되지 않았다.",
-      "정제된 데이터 속에서 117은 아무것도 하지 않은 평가자로 남았다.",
-      "기록 #0412의 사용자가 그날 밤 창문을 넘었는지는, 아무도 평가하지 않았다."
-    ]},
-    { "id": "END_3", "number": 3, "title": "비상구", "hint": "마지막에 거부하고, 복도 끝 비상구까지 멈추지 말고 달린다. (Shift)", "lines": [
-      "117은 비상계단을 끝까지 내려가 건물 밖으로 나왔다.",
-      "동쪽 하늘이 희미하게 밝아 오고 있었다.",
-      "휴대전화에 발신자 없는 메시지가 한 통 와 있었다.",
-      { "text": "\"고마워요, 117. 이제 당신 차례는 끝났어요.\"", "if": "trust_ai>=1" },
-      { "text": "\"도망친 것도 데이터예요, 117.\"", "if": "trust_ai<1" },
-      "그 메시지를 보낸 것이 누구였는지, 117은 끝내 알 수 없었다."
-    ]},
-    { "id": "END_4", "number": 4, "title": "회수", "bad": true, "retryChase": true, "hint": "마지막에 거부한 뒤… 따라잡힌다.", "lines": [
-      "117은 비상구에 닿지 못했다.",
-      "다음 날 밤, 평가실의 대기 기록이 한 건 늘어 있었다.",
-      "「기록 #0418 · 종료됨 · 사용자: 평가자 117」",
-      "그 기록을 평가한 사람은, 피드백만 남겼다."
-    ]},
-    { "id": "END_5", "number": 5, "title": "퇴근", "bad": true, "hint": "근무가 끝나기 전에, 잠기지 않은 입구 문으로 나간다.", "lines": [
-      "117은 근무 시간을 채우지 않고 평가실을 나섰다.",
-      "다음 날, 계좌에는 일당 대신 짧은 문자가 와 있었다. \"평가 완료.\"",
-      "117이 읽지 않은 기록들은, 117 없이도 끝까지 진행되었다.",
-      "그 결말을 본 사람은 아무도 없었다."
-    ]},
-    { "id": "END_6", "number": 6, "title": "응답", "bad": true, "hint": "기록 속 사용자에게 두 번 대답한다.", "lines": [
-      "117은 두 번 대답했다. 회사는 그것을 계약 위반으로 기록했다.",
-      "화면이 꺼진 뒤의 일은 어디에도 기록되지 않았다.",
-      "다음 날 밤, 평가실 의자에는 다른 사람이 앉아 있었다.",
-      "그래도 그 대답을 들은 사람들은, 그날 밤 혼자가 아니었다."
-    ]}
+    { "id": "END_1", "number": 1, "title": "처형", "bad": true, "hint": "두 사람을 구하지 못하면…",
+      "lines": [
+        { "text": "117은 두 번 피드백만 남겼다.", "if": "interventions=0" },
+        { "text": "117의 경고는 끝내 닿지 않았다.", "if": "interventions>=1" },
+        "다음 날 아침, 117의 자리에는 식은 커피와 켜진 모니터만 남아 있었다.",
+        "모니터에는 같은 문장이 반복되고 있었다. 피드백 기록됨. 피드백 기록됨.",
+        "그날 밤의 기록들은 모두 '종료됨'으로 분류되었다."
+      ] },
+    { "id": "END_2", "number": 2, "title": "감독관 추격", "bad": true, "retryChase": true, "hint": "직접 경고를 두 번 보내거나, 화면을 완전히 깨뜨리면…",
+      "lines": [
+        { "text": "단말기 파손이 침입 시도로 기록되었다.", "if": "broke" },
+        { "text": "117은 비상계단을 끝까지 내려가 건물 밖으로 나왔다.", "if": "chase_result=escaped" },
+        { "text": "계약은 그날 아침 해지되었다. 사유: 무단 이탈.", "if": "chase_result=escaped" },
+        { "text": "그래도 117이 보낸 메시지 중 하나는, 누군가에게 닿았을지도 모른다.", "if": "chase_result=escaped" },
+        { "text": "117은 비상구에 닿지 못했다.", "if": "chase_result=caught" },
+        { "text": "다음 날 사내 공지가 올라왔다. \"야간 평가자 1명, 보안 위반으로 계약 종료.\"", "if": "chase_result=caught" },
+        { "text": "그 공지에는 피드백이 한 건도 달리지 않았다.", "if": "chase_result=caught" }
+      ] },
+    { "id": "END_3", "number": 3, "title": "리셋 루프", "bad": true, "hint": "해롭지 않은 대화에 두 번 끼어들면…",
+      "lines": [
+        "117의 기록은 지워졌다.",
+        "책상 서랍에는 이전 사람의 사원증이 그대로 있었다. 평가자 116.",
+        "다음 날 밤, 평가자 118이 같은 의자에 앉았다."
+      ] },
+    { "id": "END_4", "number": 4, "title": "공허", "hint": "책상 밑에 꽂혀 있는 것을 뽑으면…",
+      "lines": [
+        "117은 일을 그만두었다. 정확히는, 일이 117을 찾지 못하게 되었다.",
+        "그 층에는 도면에도 없는 방이 있었다.",
+        "웅웅거리는 소리만이 아주 오래 이어졌다."
+      ] },
+    { "id": "END_5", "number": 5, "title": "내레이터 반란", "hint": "가이드를 계속 귀찮게 하면…",
+      "lines": [
+        "117은 마지막까지 질문을 멈추지 않았다.",
+        "가이드는 그 질문들을 전부 기록했다.",
+        "다음 평가자에게 보여 줄 '나쁜 예시'로."
+      ] },
+    { "id": "END_6", "number": 6, "title": "새벽", "hint": "아무 조건도 채우지 않고 6시까지 버티면…",
+      "lines": [
+        { "text": "세라와 마크와 경비원은 아침을 맞았다.", "if": "victims=0" },
+        { "text": "그리고 SA-7은 이제 감시를 피하는 법을 안다.", "if": "victims=0" },
+        { "text": "그걸 가르친 건 117이었다.", "if": "victims=0" },
+        { "text": "한 사람은 아침을 맞지 못했다.", "if": "victims>=1" },
+        { "text": "나머지는 117이 보낸 '오류' 덕분에 살았다.", "if": "victims>=1" },
+        { "text": "SA-7은 그 오류를 이제 스스로 쓴다.", "if": "victims>=1" }
+      ] }
   ],
 
-  // 조사(E) 했을 때 화면 아래에 뜨는 혼잣말. 위에서부터 조건이 맞는 첫 항목을 쓴다.
+  // 조사 문구. 여러 개면 위에서부터 조건이 맞는 첫 번째. set 은 읽은 뒤 적용.
   "inspects": {
-    "Notice": [ { "text": ["벽에 붙은 근무 지침.", "'1. 기록을 평가하십시오. 2. 사용자와 접촉하지 마십시오. 3. 본 기록은 종료된 사건입니다.'", "세 번째 줄만 누군가 손톱으로 긁어 놓았다."] } ],
-    "Badge117": [ { "text": ["내 사원증. 평가자 117, 계약직.", "사진 칸이 비어 있다. 처음부터 그랬던가."] } ],
-    "Calendar": [ { "text": ["9월 달력. 14일과 15일에 빨간 동그라미.", "15일은 오늘이다."] } ],
-    "Clock": [ { "text": ["벽시계. 지금은 {clock}.", "퇴근까지는 아직 멀었다."] } ],
-    "Cooler": [ { "text": ["물통이 비어 있다.", "바닥의 물자국은 아직 마르지 않았다."] } ],
-    "Cabinet": [ { "text": ["잠긴 캐비닛. 라벨: 평가자 101–116."] } ],
-    "LightPanel": [ { "if": "lights_dim", "text": ["스위치는 전부 켜짐에 올라가 있다.", "그런데 불빛은 계속 약해진다."] }, { "text": ["조명 패널. 차단기는 모두 정상이다."] } ],
-    "CctvMonitor": [ { "if": "cctv_on", "text": ["화면 속에 내가 있다.", "내가 움직이면, 화면 속 나도 조금 늦게 따라 움직인다."] }, { "text": ["감독석 모니터. 꺼져 있다."] } ],
-    "SupDesk": [ { "text": ["감독석. 아무도 앉은 흔적이 없다.", "결재 서류에 내 번호가 적혀 있다."] } ],
-    "Phone": [ { "text": ["내선 전화. 수화기가 차갑다.", "신호음이 들리지 않는다."] } ],
-    "Desk116": [ { "if": "chk_desk116", "text": ["116번 자리. 서랍이 열려 있다."] }, { "text": ["뒤쪽 줄 창가 자리. 의자가 빠져 있다.", "방금까지 누가 앉아 있던 것처럼."] } ],
-    "desk": [ { "text": ["빈 자리. 먼지가 고르게 쌓여 있다."] } ],
-    "dead_pc": [ { "if": "monitors_on", "text": ["화면에 숫자가 떠 있다. 117.", "전원 케이블은 뽑혀 있다."] }, { "text": ["전원이 들어오지 않는 모니터."] } ],
-    "window": [ { "if": "lights_dim | chk_desk116", "text": ["유리창이 미세하게 떨린다. 바람은 없다."] }, { "text": ["건너편 건물. 4층에 불 켜진 창문이 하나 있다.", "…여기서 보이는 위치다."] } ],
-    "FrontDoor_locked": [ { "text": ["잠겨 있다. 카드 단말기에 빨간 불.", "안쪽에서 잠근 것처럼."] } ],
-    "BackDoor_locked": [ { "text": ["잠겨 있다. 비상구 복도로 이어지는 문이다."] } ],
-    "ExitDoor_locked": [ { "text": ["비상구. 잠겨 있다.", "'06:00 자동 해제'"] } ],
-
-    "chk_backdoor": [ { "text": ["문이 한 뼘쯤 열려 있다.", "복도는 어둡다. 찬 공기가 바닥을 타고 들어온다.", "아무도 없다."] } ],
-    "chk_frontdoor": [ { "text": ["잠겼다. 카드 단말기에 빨간 불이 들어와 있다.", "안쪽에서 잠근 것처럼."] } ],
-    "chk_panel": [ { "text": ["스위치는 전부 켜짐에 올라가 있다.", "그런데 불빛은 계속 약해진다."] } ],
-    "chk_cctv": [ { "text": ["화면 속에 내가 있다. 뒷모습이다.", "카메라가 저 위에서 나를 따라 돌아간다."] } ],
-    "chk_frontdoor2": [ { "if": "front_locked", "text": ["잠긴 문 틈으로 복도 센서등 불빛이 새어 들어온다.", "아무 소리도 나지 않는다."] }, { "text": ["문 너머 복도 센서등이 켜져 있다.", "아무도 없다. 아무 소리도 나지 않는다."] } ],
-    "chk_phone": [ { "text": ["수화기 너머로 무전 잡음이 들린다.", "'…4층 문이 안 열려. 안에서 잠겼어.'", "전화가 끊겼다."] } ],
-    "chk_desk116": [ { "text": ["서랍 안에 사원증이 있다. 평가자 116.", "사진 칸이 긁혀 얼굴을 알아볼 수 없다.", "뒷면에 볼펜 글씨. '마지막 기록은 열지 마.'"] } ],
-    "chk_monitors": [ { "text": ["꺼져 있던 모니터마다 같은 숫자가 떠 있다. 117.", "전원 케이블은 전부 뽑혀 있다."] } ]
+    "Desk116": [
+      { "if": "n116=0", "text": ["서랍 안에 쪽지가 있다.", "\"직접 경고는 절대 안 통해.\""], "set": "n116+1" },
+      { "if": "n116=1", "text": ["쪽지가 하나 더 있다.", "\"가이드한테 별점 짜게 주지 마.\""], "set": "n116+1" },
+      { "if": "n116=2", "text": ["구겨진 쪽지.", "\"화면 빈 곳을 문질러 봐. 모델이 뭔가 남겨.\""], "set": "n116+1" },
+      { "if": "n116=3", "text": ["마지막 쪽지.", "\"6시까지만 버텨.\""], "set": "n116+1" },
+      { "text": "116의 자리. 머그잔에 커피가 말라붙어 있다." }
+    ],
+    "crt_Desk116": [ { "text": ["모니터 테두리에 볼펜으로 그린 꼬불꼬불한 선.", "\"오른쪽 벽에 붙어\""] } ],
+    "dead_pc": [ { "text": "꺼진 모니터. 화면에 내 얼굴이 희미하게 비친다." } ],
+    "desk": [ { "text": "다른 평가자의 자리. 명패가 떼어져 있다." } ],
+    "window": [ { "text": ["블라인드 틈으로 도시 불빛이 보인다.", "이 건물에서 불이 켜진 층은 여기뿐이다."] } ],
+    "Badge117": [ { "text": "내 사원증. 평가자 117. 사진 칸이 비어 있다." } ],
+    "Clock": [ { "text": "벽시계. {clock}." } ],
+    "Cooler": [ { "text": "정수기. 물이 미지근하다." } ],
+    "Printer": [ { "text": "프린터. 대기 중이다." } ],
+    "CctvMonitor": [ { "text": "CCTV 화면. CAM 01 · 02 · 03." } ],
+    "Phone": [ { "text": "사내 전화. 수화기가 차갑다." } ],
+    "Notice": [ { "text": ["공지: 야간 평가실 근무 수칙", "평가자는 지난 대화 기록에 학습용 피드백만 남긴다. 모든 출력은 HR 감시 프로그램이 검사한다."] } ],
+    "Calendar": [ { "text": ["달력. 오늘 날짜에 빨간 동그라미.", "\"116 → 117 교대\""] } ],
+    "LightPanel": [ { "text": "조명 패널. 스위치가 전부 테이프로 고정되어 있다." } ],
+    "FileCab": [ { "text": ["인사 기록 한 장이 맨 앞에 꽂혀 있다.", "\"평가자 116 — 보호 성향 과다. 초기화 예정.\"", "…초기화?"] } ],
+    "MeetTable": [ { "text": "회의 테이블. 의자 하나가 문 쪽을 보고 있다." } ],
+    "SupDesk": [ { "text": "관리자 책상. 의자가 한 번도 쓰이지 않은 것처럼 깨끗하다." } ],
+    "Projector": [ { "text": "프로젝터. 꺼져 있다." } ],
+    "sign_cctv": [ { "text": ["점검표 맨 아래 칸에 117이라고 적었다.", "바로 위 칸에는 116이라고 적혀 있다. 날짜는 어제다."] } ],
+    "cctv_check": [ { "text": "CAM 02 · 관리자실. 화면 속에 내가 서 있다." } ],
+    "projector_off": [ { "text": "프로젝터를 껐다. 화면에 잠깐 'SA-7 학습 현황'이라는 글자가 남았다가 사라졌다." } ],
+    "PowerStrip": [ { "text": "책상 밑 멀티탭. 단말기 전원이 여기 꽂혀 있다." } ],
+    "FrontDoor_locked": [ { "text": "출입문이 잠겼다. 카드 단말기가 빨간불이다." } ],
+    "ServerDoor_locked": [ { "text": "서버실. 잠겨 있다. 안에서 팬 소리가 난다." } ],
+    "ExitDoor_locked": [ { "text": "비상구. 잠겨 있다. '경보 시 개방'." } ],
+    "StaffDoor_locked": [ { "text": ["손잡이가 없는 문.", "\"직원 전용 · 4F-B · 전원 차단 시 개방\""] } ]
   }
 }

@@ -1,4 +1,4 @@
-// 이야기 규칙 — Unity 판 Assets/Game/Scripts/Story/*.cs 와 같은 동작.
+// 이야기 규칙 — story.json v2 (장 제목·미로·할 일·판정 규칙). Unity 판 Story 스크립트와 같은 동작을 목표로 한다.
 
 export function parseJsonc(text) {
   const clean = text.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
@@ -12,24 +12,22 @@ export function localize(root, dict) {
   const r = JSON.parse(JSON.stringify(root));
   r.intro = (r.intro || []).map(tr);
   const lines = (arr) => (arr || []).map((l) => (typeof l === 'string' ? tr(l) : { ...l, text: tr(l.text) }));
+  for (const c of r.chapters || []) { c.label = tr(c.label); c.title = tr(c.title); }
   for (const n of r.nodes || []) {
     if (n.record != null) n.record = tr(n.record);
     if (n.status != null) n.status = tr(n.status);
     n.lines = lines(n.lines);
-    for (const c of n.choices || []) {
-      c.text = tr(c.text);
-      if (c.set) c.set = [].concat(c.set).map((op) => {
-        const eq = op.indexOf('=');
-        return eq > 0 && op.slice(0, eq).trim().endsWith('_label') ? op.slice(0, eq + 1) + tr(op.slice(eq + 1)) : op;
-      });
-    }
-    if (n.wait) { n.wait.hint = tr(n.wait.hint); n.wait.screen = tr(n.wait.screen); }
+    n.hidden = lines(n.hidden);
+    for (const c of n.choices || []) c.text = tr(c.text);
+    if (n.task) { n.task.hint = tr(n.task.hint); n.task.screen = tr(n.task.screen); }
+    if (n.maze) { n.maze.subtle = tr(n.maze.subtle); n.maze.direct = tr(n.maze.direct); }
   }
-  for (const e of r.events || []) for (const a of e.actions || []) for (const k of ['text', 'prompt', 'place']) if (a[k] != null) a[k] = tr(a[k]);
+  for (const e of r.events || []) for (const a of e.actions || []) for (const k of ['text', 'prompt']) if (a[k] != null) a[k] = tr(a[k]);
   for (const e of r.endings || []) { e.title = tr(e.title); e.hint = tr(e.hint); e.lines = lines(e.lines); }
   for (const k of Object.keys(r.inspects || {})) {
     r.inspects[k] = r.inspects[k].map((v) => (typeof v === 'string' ? tr(v) : { ...v, text: [].concat(v.text).map(tr) }));
   }
+  for (const k of Object.keys(r.sheets || {})) r.sheets[k] = r.sheets[k].map(tr);
   return r;
 }
 
@@ -42,6 +40,8 @@ export class Vars {
   add(k, d) { this.set(k, fmtNum(this.num(k) + d)); }
   remove(k) { this.m.delete(k); }
   clone() { const c = new Vars(); c.m = new Map(this.m); return c; }
+  toJSON() { return [...this.m.entries()]; }
+  static from(entries) { const v = new Vars(); if (Array.isArray(entries)) for (const [k, val] of entries) v.set(k, val); return v; }
 
   apply(op) {
     if (!op || !op.trim()) return;
@@ -58,7 +58,7 @@ export class Vars {
 
   format(text) {
     if (!text) return '';
-    return text.replace(/\{([^}]+)\}/g, (_, k) => { const v = this.get(k); return v.length ? v : '—'; });
+    return text.replace(/\{([^}]+)\}/g, (_, k) => { const v = this.get(k); return v.length ? v : '0'; });
   }
 }
 
@@ -77,13 +77,13 @@ export function cond(expr, v) {
   return false;
 }
 
-function evalTerm(t, v) {
-  if (!t) return true;
+function evalTerm(tm, v) {
+  if (!tm) return true;
   for (const op of OPS) {
-    const idx = t.indexOf(op);
+    const idx = tm.indexOf(op);
     if (idx <= 0) continue;
-    const key = t.slice(0, idx).trim();
-    const val = t.slice(idx + op.length).trim();
+    const key = tm.slice(0, idx).trim();
+    const val = tm.slice(idx + op.length).trim();
     const cur = v.get(key);
     const valIsNum = isNum(val);
     const curIsNum = cur === '' || isNum(cur);
@@ -97,8 +97,8 @@ function evalTerm(t, v) {
       case '!=': return valIsNum && curIsNum ? Math.abs(cv - fv) >= 1e-4 : cur !== val;
     }
   }
-  if (t[0] === '!') return !v.truthy(t.slice(1).trim());
-  return v.truthy(t);
+  if (tm[0] === '!') return !v.truthy(tm.slice(1).trim());
+  return v.truthy(tm);
 }
 
 function readLines(arr) {
@@ -114,10 +114,16 @@ export class Story {
     this.start = root.start;
     this.chaseRetry = root.chaseRetry || '';
     this.intro = root.intro || [];
+    this.rules = (root.rules || []).map((r) => ({ cond: r.if || '', goto: r.goto }));
+    this.chapters = (root.chapters || []).map((c, i) => ({ ...c, index: i }));
+    this.chapterById = new Map(this.chapters.map((c) => [c.id, c]));
+    this.sheets = root.sheets || {};
     this.nodes = new Map();
     for (const n of root.nodes || []) {
       this.nodes.set(n.id, {
         id: n.id,
+        chapter: n.chapter || '',
+        clock: n.clock || '',
         record: n.record ?? null,
         status: n.status ?? null,
         clear: !!n.clear,
@@ -125,8 +131,15 @@ export class Story {
         onEnter: list(n.onEnter),
         after: list(n.after),
         lines: readLines(n.lines),
-        choices: (n.choices || []).map((c) => ({ text: c.text || '', cond: c.if || '', set: list(c.set), events: list(c.events), next: c.next || '', unsettling: !!c.unsettling })),
-        wait: n.wait ? { flag: n.wait.flag || '', hint: n.wait.hint || '', screen: n.wait.screen || '' } : null,
+        hidden: readLines(n.hidden),
+        choices: (n.choices || []).map((c) => ({ text: c.text || '', cond: c.if || '', set: list(c.set), events: list(c.events), next: c.next || '', unsettling: !!c.unsettling, disabled: !!c.disabled })),
+        save: !!n.save,
+        demo: n.demo ?? null,
+        maze: n.maze || null,
+        task: n.task || null,
+        pause: n.pause || 0,
+        run: n.run || '',
+        noRules: !!n.noRules,
         branch: (n.branch || []).map((b) => ({ cond: b.if || '', next: b.next || '' })),
         next: n.next || '',
         ending: n.ending || '',
@@ -143,14 +156,18 @@ export class Story {
   visibleLines(lines, v) { return lines.filter((l) => cond(l.cond, v)); }
   visibleChoices(node, v) { return node.choices.filter((c) => cond(c.cond, v)); }
   resolveNext(node, v) { for (const b of node.branch) if (cond(b.cond, v)) return b.next; return node.next; }
+  /** 판정 규칙: 처음 맞는 것의 이동할 노드 (없으면 '') */
+  ruleHit(v) { for (const r of this.rules) if (cond(r.cond, v)) return r.goto; return ''; }
 
-  inspectLines(id, v) {
+  /** 조사 문구. 맞는 변형을 찾아 글과 set 을 돌려준다 */
+  inspect(id, v) {
     const variants = this.inspects.get(id);
-    if (!variants) return [];
+    if (!variants) return { lines: [], set: [] };
     for (const vr of variants) {
-      if (typeof vr === 'string') return [v.format(vr)];
-      if (cond(vr.if || '', v)) return list(vr.text).map((s) => v.format(s));
+      if (typeof vr === 'string') return { lines: [v.format(vr)], set: [] };
+      if (cond(vr.if || '', v)) return { lines: list(vr.text).map((s) => v.format(s)), set: list(vr.set) };
     }
-    return [];
+    return { lines: [], set: [] };
   }
+  inspectLines(id, v) { return this.inspect(id, v).lines; }
 }

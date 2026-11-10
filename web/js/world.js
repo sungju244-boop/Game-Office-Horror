@@ -95,7 +95,22 @@ export class MatLib {
       case 'led_red': return new THREE.MeshBasicMaterial({ color: C(1.0, 0.12, 0.08) });
       case 'led_green': return new THREE.MeshBasicMaterial({ color: C(0.2, 1.0, 0.35) });
       case 'led_amber': return new THREE.MeshBasicMaterial({ color: C(1.0, 0.6, 0.12) });
+      case 'led_blue': return new THREE.MeshBasicMaterial({ color: C(0.3, 0.6, 1.0) });
+      case 'glass': return new THREE.MeshPhongMaterial({ color: C(0.08, 0.12, 0.16), specular: C(0.9, 0.95, 1.0), shininess: 120, transparent: true, opacity: 0.16, depthWrite: false });
+      case 'void_floor': return new THREE.MeshBasicMaterial({ map: this.tex('void_floor', 2.0), color: C(0.55, 0.6, 0.75) });
+      case 'door_staff': return this.lit('wall', C(0.66, 0.7, 0.74), 2.0, 0.05);
+      case 'rack': return this.lit('rack_front', C(0.9, 0.9, 0.9), 0, 0.3, C(0.7, 0.7, 0.7), 'rack_front');
+      case 'printer_body': return this.lit('plastic', C(0.78, 0.78, 0.76), 0.5, 0.25);
+      case 'note116': return this.lit('note116', C(1, 1, 1), 0, 0.02);
+      case 'ent_black': return new THREE.MeshBasicMaterial({ color: C(0.004, 0.004, 0.006) });
+      case 'ent_hand': return this.lit(null, C(0.05, 0.05, 0.06), 1, 0.4, C(0.012, 0.012, 0.016));
+      case 'uncle_skin': return this.lit(null, C(0.86, 0.66, 0.52), 1, 0.15);
+      case 'uncle_shirt': return this.lit(null, C(0.93, 0.9, 0.82), 1, 0.05);
+      case 'uncle_pants': return this.lit(null, C(0.78, 0.68, 0.52), 1, 0.05);
+      case 'uncle_shoe': return this.lit(null, C(0.04, 0.04, 0.045), 1, 0.3);
+      case 'uncle_face': return this.lit('uncle_face', C(1, 1, 1), 0, 0.1);
     }
+    if (this.textures.get(key)) return this.lit(key, C(1, 1, 1), 0, 0.15);
     console.warn('정의되지 않은 재질', key);
     return new THREE.MeshLambertMaterial({ color: 0xff00ff });
   }
@@ -107,7 +122,7 @@ export class CeilingLight {
     this.light = light; this.panelMat = panelMat; this.base = base; this.flicker = flicker;
     this.level = level; this.from = level; this.to = level; this.t = 1; this.dur = 1; this.mul = 1; this.timer = 0;
     // ext: 깜짝 장면의 정전(0) · minLevel/calm: 겁쟁이 모드(항상 밝게, 깜빡임 없음). 이야기의 조명 값(level·flicker)은 그대로 둔다.
-    this.ext = 1; this.minLevel = 0; this.calm = false;
+    this.ext = 1; this.minLevel = 0; this.calm = false; this.mood = 1;
     this.apply();
   }
   fadeTo(level, time) { this.from = this.level; this.to = Math.max(0, level); this.t = 0; this.dur = Math.max(0.01, time); }
@@ -124,7 +139,7 @@ export class CeilingLight {
     this.apply();
   }
   apply() {
-    const k = Math.max(this.level, this.minLevel) * this.mul * this.ext;
+    const k = Math.max(this.level * this.mood, this.minLevel) * this.mul * this.ext;
     this.light.intensity = this.base * k;
     if (this.panelMat) this.panelMat.emissiveIntensity = Math.min(1, k) * 1.1;
   }
@@ -176,15 +191,21 @@ export class MonitorScreen {
 }
 
 // ---------- 충돌 격자 (Tools/check_layout.py 와 같은 규칙) ----------
-const RES = 0.05, X0 = -8, X1 = 8, Z0 = -8.5, Z1 = 14;
+const RES = 0.05;
 export class CollisionGrid {
-  constructor() {
-    this.w = Math.round((X1 - X0) / RES); this.h = Math.round((Z1 - Z0) / RES);
+  constructor(floors) {
+    let x0 = -8, x1 = 8, z0 = -8.5, z1 = 14;
+    if (floors && floors.length) {
+      x0 = Math.min(...floors.map((f) => f.min[0])) - 1; x1 = Math.max(...floors.map((f) => f.max[0])) + 1;
+      z0 = Math.min(...floors.map((f) => f.min[1])) - 1; z1 = Math.max(...floors.map((f) => f.max[1])) + 1;
+    }
+    this.X0 = x0; this.Z0 = z0;
+    this.w = Math.round((x1 - x0) / RES); this.h = Math.round((z1 - z0) / RES);
     this.block = new Uint8Array(this.w * this.h);
     this.floor = new Uint8Array(this.w * this.h);
     this.doors = [];
   }
-  cell(x, z) { return [Math.floor((z - Z0) / RES), Math.floor((x - X0) / RES)]; }
+  cell(x, z) { return [Math.floor((z - this.Z0) / RES), Math.floor((x - this.X0) / RES)]; }
   rect(cx, cz, sx, sz, yawDeg, arr) {
     const r = yawDeg * D, cs = Math.cos(r), sn = Math.sin(r);
     const hx = sx / 2, hz = sz / 2;
@@ -192,7 +213,7 @@ export class CollisionGrid {
     const [j0, i0] = this.cell(cx - ext, cz - extz), [j1, i1] = this.cell(cx + ext, cz + extz);
     for (let j = Math.max(0, j0); j <= Math.min(this.h - 1, j1); j++) {
       for (let i = Math.max(0, i0); i <= Math.min(this.w - 1, i1); i++) {
-        const x = X0 + (i + 0.5) * RES - cx, z = Z0 + (j + 0.5) * RES - cz;
+        const x = this.X0 + (i + 0.5) * RES - cx, z = this.Z0 + (j + 0.5) * RES - cz;
         // Unity 회전의 역: (x,z) 를 -yaw 만큼
         const lx = x * cs - z * sn, lz = x * sn + z * cs;
         if (Math.abs(lx) <= hx && Math.abs(lz) <= hz) arr[j * this.w + i] = 1;
@@ -264,8 +285,10 @@ export function buildWorld(layout, mats, scene) {
   const F = new Factory(mats);
   const reg = {
     root: new THREE.Group(), anchors: new Map(), doors: new Map(), its: new Map(), lights: new Map(), drawers: new Map(),
-    dead: [], hit: [], ceiling: [], grid: new CollisionGrid(), proxyMat: new THREE.MeshBasicMaterial({ visible: false }),
-    live: null, crtLight: null, crtGlow: null, chairSeat: null, cctv: null, cctvMonitor: null, clock: null, avatar: null,
+    dead: [], hit: [], ceiling: [], grid: new CollisionGrid(layout.floors), proxyMat: new THREE.MeshBasicMaterial({ visible: false }),
+    live: null, crtLight: null, crtGlow: null, chairSeat: null, cctv: null, cctvs: new Map(), cctvMonitor: null, clock: null, avatar: null,
+    rooms: new Map(), glass: [], printer: null, monitors: new Map(), voidFloor: null, powerStrip: null, chairs: new Map(), projector: null,
+    fallCabs: [], ceilingParts: [],
   };
   reg.root.name = 'World';
   scene.add(reg.root);
@@ -278,10 +301,11 @@ export function buildWorld(layout, mats, scene) {
   reg.spawn = { x: layout.spawn.pos[0], z: layout.spawn.pos[1], yaw: layout.spawn.yaw || 0 };
   reg.deskStand = { x: layout.deskStand.pos[0], z: layout.deskStand.pos[1], yaw: layout.deskStand.yaw || 0 };
   reg.titleCam = { pos: layout.titleCam.pos, look: layout.titleCam.look };
-  at('CatSpawn', [layout.catSpawn[0], 0, layout.catSpawn[1]]);
+  const sup = layout.supSpawn || layout.catSpawn || [0, 0];
+  at('SupSpawn', [sup[0], 0, sup[1]]);
   at('ExitPoint', [layout.exitPoint[0], 0, layout.exitPoint[1]]);
-  at('FrontHall', [-1.5, 1.2, -6.6]);
-  at('Corridor', [5, 1.2, 9]);
+  if (layout.voidPoint) at('VoidPoint', [layout.voidPoint[0], 0, layout.voidPoint[1]]);
+  reg.fog = layout.fog ?? 0.075;
 
   const structure = F.node(root, 'Structure');
   const grid = reg.grid;
@@ -292,8 +316,10 @@ export function buildWorld(layout, mats, scene) {
     const w = bx - ax, d = bz - az, cx = (ax + bx) / 2, cz = (az + bz) / 2;
     const fl = F.box(structure, [w, 0.1, d], [cx, -0.05, cz], f.mat || 'carpet');
     fl.castShadow = false;
-    F.box(structure, [w + 0.4, 0.12, d + 0.4], [cx, h + 0.06, cz], f.ceilMat || 'ceiling');
+    if (f.void) { fl.userData.dynamic = true; fl.visible = false; reg.voidFloor = fl; }
+    if (f.ceilMat !== 'none') F.box(structure, [w + 0.4, 0.12, d + 0.4], [cx, h + 0.06, cz], f.ceilMat || 'ceiling');
     grid.rect(cx, cz, w, d, 0, grid.floor);
+    reg.rooms.set(f.id, { min: f.min, max: f.max });
   }
 
   // 벽
@@ -318,26 +344,58 @@ export function buildWorld(layout, mats, scene) {
       if (o.y1 < h - 0.001) piece(o0, o1, o.y1, h, false);
       if (o.y0 > 0.001) { piece(o0, o1, 0, o.y0, true); }
       if (o.win) buildWindow(F, reg, root, o.win, [ax + dx * o.c, az + dz * o.c], o.w, o.y0, o.y1, alongX);
+      if (o.glass) {
+        const gx = ax + dx * o.c, gz = az + dz * o.c, gh = o.y1 - o.y0, gy = (o.y0 + o.y1) / 2;
+        const pane = F.box(structure, alongX ? [o.w, gh, 0.02] : [0.02, gh, o.w], [gx, gy, gz], 'glass');
+        pane.castShadow = false; pane.receiveShadow = false;
+        F.box(structure, alongX ? [o.w, 0.05, 0.08] : [0.08, 0.05, o.w], [gx, o.y1 - 0.025, gz], 'metal_dark');
+        F.box(structure, alongX ? [o.w, 0.05, 0.08] : [0.08, 0.05, o.w], [gx, o.y0 + 0.025, gz], 'metal_dark');
+        for (let k = 1; k < Math.round(o.w / 1.3); k++) {
+          const sx = -o.w / 2 + k * (o.w / Math.round(o.w / 1.3));
+          F.box(structure, alongX ? [0.04, gh, 0.06] : [0.06, gh, 0.04], [gx + (alongX ? sx : 0), gy, gz + (alongX ? 0 : sx)], 'metal_dark');
+        }
+        proxy(reg, root, [gx, gy, gz], alongX ? [o.w, gh, 0.06] : [0.06, gh, o.w]);
+        reg.glass.push({ x: gx, z: gz, w: o.w, alongX, y0: o.y0, y1: o.y1 });
+      }
       s = o1;
     }
     if (len > s + 0.001) piece(s, len, 0, h, true);
   }
 
+  for (const [id, r] of reg.rooms) at('Room_' + id, [(r.min[0] + r.max[0]) / 2, 1.2, (r.min[1] + r.max[1]) / 2]);
+
   // 문
   for (const dd of layout.doors) buildDoor(F, reg, root, dd);
 
-  // 조명
+  // 조명 (개수 고정: 고장 난 등기구는 빛을 만들지 않는다)
   for (const l of layout.lights) {
-    const h = l.ceiling ?? 2.6;
-    const g = F.node(root, l.id, [l.pos[0], h, l.pos[1]]);
-    g.userData.dynamic = true;
-    F.box(g, [1.22, 0.05, 0.62], [0, -0.025, 0], 'metal');
-    const pm = new THREE.MeshLambertMaterial({ color: C(0.8, 0.82, 0.85), emissive: C(0.85, 0.95, 1.05), emissiveIntensity: 1 });
-    const panel = F.mesh(g, boxGeo(1.16, 0.012, 0.56), pm, [0, -0.056, 0], [0, 0, 0], false);
-    const light = new THREE.PointLight(0xcce6ff, 1, h < 2.55 ? 6 : 8, 1.4);
-    light.position.set(0, -0.35, 0);
-    g.add(light);
-    const cl = new CeilingLight(light, pm, 5.5, l.level ?? 1, !!l.flicker);
+    const h = l.ceiling ?? 2.8;
+    if (l.dead) {
+      const g = F.node(root, l.id, [l.pos[0], h, l.pos[1]]);
+      g.userData.dynamic = true; reg.ceilingParts.push(g);
+      F.box(g, [1.22, 0.05, 0.62], [0, -0.025, 0], 'metal');
+      F.box(g, [1.16, 0.012, 0.56], [0, -0.056, 0], 'plastic_dark');
+      continue;
+    }
+    let g, pm = null, light;
+    if (l.fixture === false) {
+      g = F.node(root, l.id, [l.pos[0], l.y ?? 1.0, l.pos[1]]);
+      g.userData.dynamic = true;
+      const c = l.color || [1, 1, 1];
+      light = new THREE.PointLight(new THREE.Color(c[0], c[1], c[2]), 1, l.range ?? 5, 1.6);
+      g.add(light);
+    } else {
+      g = F.node(root, l.id, [l.pos[0], h, l.pos[1]]);
+      g.userData.dynamic = true; reg.ceilingParts.push(g);
+      F.box(g, [1.22, 0.05, 0.62], [0, -0.025, 0], 'metal');
+      pm = new THREE.MeshLambertMaterial({ color: C(0.8, 0.82, 0.85), emissive: C(0.85, 0.95, 1.05), emissiveIntensity: 1 });
+      F.mesh(g, boxGeo(1.16, 0.012, 0.56), pm, [0, -0.056, 0], [0, 0, 0], false);
+      light = new THREE.PointLight(0xcce6ff, 1, l.range ?? (h < 2.65 ? 7 : 9.5), 1.4);
+      light.position.set(0, -0.35, 0);
+      g.add(light);
+    }
+    const cl = new CeilingLight(light, pm, l.base ?? 5.5, l.level ?? 1, !!l.flicker);
+    cl.id = l.id; cl.group = l.group || 'ceiling';
     const group = l.group || 'ceiling';
     if (!reg.lights.has(group)) reg.lights.set(group, []);
     reg.lights.get(group).push(cl);
@@ -350,14 +408,15 @@ export function buildWorld(layout, mats, scene) {
   for (const p of layout.props) buildProp(F, reg, props, p);
 
   // 천장 구멍·케이블
-  for (const hpos of layout.holes || []) F.quad(structure, [0.6, 0.6], [hpos[0], 2.596, hpos[1]], [-90, 0, 0], 'hole');
+  const ceil = F.node(root, 'CeilingParts'); ceil.userData.dynamic = true; reg.ceilingParts.push(ceil);
+  for (const hpos of layout.holes || []) F.quad(ceil, [0.6, 0.6], [hpos[0], 2.796, hpos[1]], [-90, 0, 0], 'hole');
   for (const c of layout.cables || []) {
     if (c.hang) {
-      const top = [c.hang[0], 2.6, c.hang[1]], len = c.len || 0.8, seed = top[0] * 3.1 + top[2] * 1.7, pts = [];
+      const top = [c.hang[0], 2.8, c.hang[1]], len = c.len || 0.8, seed = top[0] * 3.1 + top[2] * 1.7, pts = [];
       for (let i = 0; i <= 10; i++) { const t = i / 10; pts.push([top[0] + Math.sin(seed + t * 2.5) * 0.05 * t, top[1] - len * t, top[2] + Math.cos(seed * 0.7 + t * 2) * 0.04 * t]); }
       const last = pts[pts.length - 1]; pts.push([last[0] + 0.04, last[1] + 0.03, last[2] + 0.02]);
-      F.cable(structure, pts, 0.012);
-    } else if (c.a) F.cable(structure, sag(c.a, c.b, c.sag ?? 0.3, 16), 0.011);
+      F.cable(ceil, pts, 0.012);
+    } else if (c.a) F.cable(ceil, sag(c.a, c.b, c.sag ?? 0.3, 16), 0.011);
     else if (c.floor) {
       const pts = c.floor.map((q) => [q[0], 0.012, q[1]]), sm = [];
       for (let i = 0; i < pts.length - 1; i++) for (let k = 0; k < 6; k++) { const t = k / 6; sm.push([pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, 0.012, pts[i][2] + (pts[i + 1][2] - pts[i][2]) * t + Math.sin(i * 2 + k) * 0.01]); }
@@ -368,15 +427,22 @@ export function buildWorld(layout, mats, scene) {
 
   // 창밖
   const bd = layout.backdrop || {};
-  const bq = F.quad(root, [bd.width || 30, bd.height || 12], [bd.x || 12, (bd.y ?? 0.5) + (bd.height || 12) * 0.25, 0], [0, 90, 0], 'window_night');
+  const bw = bd.width || 30, bh = bd.height || 12;
+  const bq = bd.pos
+    ? F.quad(root, [bw, bh], [bd.pos[0], (bd.y ?? 0.5) + bh * 0.25, bd.pos[1]], [0, 180, 0], 'window_night') // 남쪽(건물)을 본다
+    : F.quad(root, [bw, bh], [bd.x || 12, (bd.y ?? 0.5) + bh * 0.25, 0], [0, 90, 0], 'window_night');
   bq.userData.dynamic = true;
+  reg.backdrop = bq;
   const moon = new THREE.DirectionalLight(0x7590d0, 0.9);
-  const md = new THREE.Vector3(-1, -0.6, -0.25).normalize(); // Unity (−1,−0.6,0.25) → z 반전
-  moon.position.set(2, 2.3, 0).sub(md.clone().multiplyScalar(8));
-  moon.target.position.set(2, 2.3, 0).add(md.clone().multiplyScalar(4));
+  const mo = layout.moon || { dir: [-1, -0.6, 0.25], center: [2, 2.3, 0], extent: 12 };
+  const md = new THREE.Vector3(mo.dir[0], mo.dir[1], -mo.dir[2]).normalize(); // 배치(Unity) 좌표 → z 반전
+  const mc = new THREE.Vector3(mo.center[0], mo.center[1], -mo.center[2]);
+  const ex = mo.extent || 12;
+  moon.position.copy(mc).sub(md.clone().multiplyScalar(ex * 1.4));
+  moon.target.position.copy(mc).add(md.clone().multiplyScalar(4));
   moon.castShadow = true;
   moon.shadow.mapSize.set(2048, 2048);
-  Object.assign(moon.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 0.5, far: 40 });
+  Object.assign(moon.shadow.camera, { left: -ex, right: ex, top: ex, bottom: -ex, near: 0.5, far: ex * 3.2 });
   moon.shadow.bias = -0.0008;
   moon.shadow.normalBias = 0.02;
   root.add(moon, moon.target);
@@ -411,18 +477,22 @@ function buildDoor(F, reg, root, d) {
   const dir = d.dir || 'x';
   const yaw = dir === 'x' ? 0 : dir === '-x' ? 180 : dir === 'z' ? -90 : 90;
   const frame = F.node(root, id + '_Frame', [hx, 0, hz], yaw);
-  F.box(frame, [0.05, 2.12, 0.19], [-0.025, 1.06, 0], 'metal_dark');
-  F.box(frame, [0.05, 2.12, 0.19], [w + 0.025, 1.06, 0], 'metal_dark');
-  F.box(frame, [w + 0.1, 0.06, 0.19], [w / 2, 2.13, 0], 'metal_dark');
+  const fm = d.handle === false ? 'wall_dark' : 'metal_dark';
+  F.box(frame, [0.05, 2.12, 0.19], [-0.025, 1.06, 0], fm);
+  F.box(frame, [0.05, 2.12, 0.19], [w + 0.025, 1.06, 0], fm);
+  F.box(frame, [w + 0.1, 0.06, 0.19], [w / 2, 2.13, 0], fm);
   const pivot = F.node(root, id, [hx, 0, hz], 0);
   pivot.userData.dynamic = true;
-  F.box(pivot, [w - 0.02, 2.06, 0.045], [w / 2, 1.03, 0], d.mat || 'door', [0, 0, 0], 0);
-  for (const s of [-1, 1]) {
-    F.box(pivot, [0.13, 0.02, 0.025], [w - 0.14, 1.0, 0.045 * s], 'metal');
-    F.box(pivot, [0.05, 0.05, 0.012], [w - 0.09, 1.0, 0.03 * s], 'metal');
+  F.box(pivot, [w - 0.02, 2.06, 0.045], [w / 2, 1.03, 0], d.mat || 'door', [0, 0, 0], d.mat === 'door_staff' ? 2.0 : 0);
+  if (d.handle !== false) {
+    for (const s of [-1, 1]) {
+      F.box(pivot, [0.13, 0.02, 0.025], [w - 0.14, 1.0, 0.045 * s], 'metal');
+      F.box(pivot, [0.05, 0.05, 0.012], [w - 0.09, 1.0, 0.03 * s], 'metal');
+    }
   }
   if (d.pushbar) F.box(pivot, [w * 0.7, 0.05, 0.05], [w / 2, 1.0, -0.06], 'metal');
   const door = new Door(id, pivot, yaw, d.openYaw ?? -95, !!d.locked);
+  if (d.open) { door.amount = door.to = d.open; door.applyRot(); }
   const it = new Interactable(id); reg.its.set(id, it);
   proxy(reg, pivot, [w / 2, 1.03, 0], [w, 2.06, 0.08], it);
   reg.doors.set(id, door);
@@ -568,15 +638,19 @@ function buildProp(F, reg, parent, p) {
         reg.crtGlow = glow;
       } else if (mode === 'dead' && c) {
         let glow = null;
-        if (['D12', 'Desk116'].includes(id)) {
-          glow = new THREE.PointLight(0x80b3ff, 0, 2.4, 1.5);
+        if (p.glow) {
+          glow = new THREE.PointLight(0x80b3ff, 0, 2.6, 1.5);
           place(glow, [0, 0.28, -0.5]); c.root.add(glow);
         }
-        reg.dead.push(new MonitorScreen(c.screen, F.M.get('screen_dead'), glow));
+        const ms = new MonitorScreen(c.screen, F.M.get('screen_dead'), glow);
+        ms.id = id; ms.root = c.root;
+        reg.dead.push(ms);
+        reg.monitors.set(id, ms);
         addIt('crt_' + id, c.root, [0, 0.27, 0.16], [0.46, 0.46, 0.42]);
       }
       if (p.chair) {
-        chair(F, reg, root, [off[0], 0, off[1]], p.chairRot || 0);
+        const ch = chair(F, reg, root, [off[0], 0, off[1]], p.chairRot || 0);
+        if (id && p.chairDynamic) { reg.chairs.set(id, ch); ch.userData.dynamic = true; }
         if (mode === 'live') { const seat = F.node(root, 'SeatPoint', [off[0], 0, off[1]], 0); reg.chairSeat = seat; }
       }
       if (p.pc) {
@@ -602,6 +676,24 @@ function buildProp(F, reg, parent, p) {
         } else if (item === 'papers') {
           const pp = F.node(root, 'Papers', [0.5, 0.75, 0.05], -8);
           for (let k = 0; k < 3; k++) F.box(pp, [0.21, 0.004, 0.297], [k * 0.015, 0.002 + k * 0.004, k * 0.01], 'paper', [0, k * 6 - 4, 0]);
+        } else if (item === 'powerstrip') {
+          // 책상 왼쪽 다리 옆 바닥의 멀티탭 (본체로 가는 케이블)
+          const ps = F.node(root, 'PowerStrip', [-0.86, 0, -0.18], 8);
+          ps.userData.dynamic = true;
+          F.box(ps, [0.07, 0.04, 0.32], [0, 0.02, 0], 'plastic');
+          for (let k = 0; k < 4; k++) F.box(ps, [0.035, 0.012, 0.035], [0, 0.045, -0.11 + k * 0.075], 'plastic_dark');
+          F.box(ps, [0.012, 0.01, 0.012], [0.024, 0.045, 0.14], 'led_red');
+          const plug = F.node(ps, 'Plug', [0, 0.045, -0.035]);
+          F.box(plug, [0.05, 0.045, 0.05], [0, 0.022, 0], 'plastic_dark');
+          F.cable(root, [[-0.86, 0.06, -0.21], [-0.8, 0.03, -0.05], [-0.62, 0.012, 0.1], [-0.45, 0.06, 0.05]], 0.006);
+          F.cable(root, [[-0.86, 0.01, 0.0], [-0.95, 0.008, 0.25], [-1.1, 0.008, 0.6]], 0.006);
+          const it = new Interactable('PowerStrip'); reg.its.set('PowerStrip', it); reg.anchors.set('PowerStrip', ps);
+          proxy(reg, ps, [0, 0.1, 0], [0.34, 0.24, 0.5], it);
+          reg.powerStrip = { root: ps, plug };
+        } else if (item === 'note116' && c) {
+          // 116 모니터 테두리의 볼펜 미로 + 쪽지
+          const n = F.quad(c.root, [0.11, 0.11], [-0.17, 0.42, -0.0365], [0, 0, 5], 'note116');
+          reg.anchors.set('Note116', n);
         } else if (item === 'boxes') {
           const bx = F.node(root, 'DeskBoxes', [0, 0.75, 0.05], 7);
           F.box(bx, [0.42, 0.3, 0.34], [-0.2, 0.15, 0], 'cardboard', [0, 0, 0], 0.6);
@@ -636,6 +728,24 @@ function buildProp(F, reg, parent, p) {
       break;
     }
     case 'cabinet': {
+      if (p.fall) {
+        // 앞쪽 아래 모서리를 축으로 넘어지는 캐비닛 (추격 장애물)
+        const r = rot * D;
+        const pivot = new THREE.Group(); pivot.name = id; pivot.rotation.order = 'YXZ';
+        pivot.position.set(p.pos[0] - Math.sin(r) * 0.31, 0, -(p.pos[1] - Math.cos(r) * 0.31));
+        pivot.rotation.y = -r; pivot.userData.dynamic = true; parent.add(pivot);
+        const body = new THREE.Group(); body.position.z = -0.31; pivot.add(body);
+        F.box(body, [0.46, 1.32, 0.62], [0, 0.66, 0], 'metal');
+        for (let k = 0; k < 4; k++) {
+          const y = 0.18 + k * 0.32;
+          F.box(body, [0.42, 0.29, 0.012], [0, y, -0.315], 'metal');
+          F.box(body, [0.14, 0.02, 0.025], [0, y + 0.07, -0.33], 'metal_dark');
+        }
+        proxy(reg, body, [0, 0.66, 0], [0.46, 1.32, 0.62]);
+        grid.rect(p.pos[0], p.pos[1], 0.46, 0.62, rot, grid.block);
+        reg.fallCabs.push({ id, pivot, rot, pos: [p.pos[0], p.pos[1]], edge: [p.pos[0] - Math.sin(r) * 0.31, p.pos[1] - Math.cos(r) * 0.31], dir: [-Math.sin(r), -Math.cos(r)], state: 0, t: 0 });
+        break;
+      }
       const root = F.node(parent, id || 'Cabinet', pos, rot);
       F.box(root, [0.46, 1.32, 0.62], [0, 0.66, 0], 'metal');
       for (let k = 0; k < 4; k++) {
@@ -693,12 +803,94 @@ function buildProp(F, reg, parent, p) {
     case 'notice': decal(F, reg, parent, id, 'notice', [0.4, 0.6], pos, rot, true); break;
     case 'calendar': decal(F, reg, parent, id, 'calendar', [0.3, 0.45], pos, rot, true); break;
     case 'sign': decal(F, reg, parent, 'Sign', p.tex || 'sign_room', p.size || [0.46, 0.23], pos, rot, false); break;
+    case 'decal': decal(F, reg, parent, id || 'Decal', p.tex, p.size || [0.46, 0.23], pos, rot, !!(p.hit && id)); break;
     case 'exitsign': {
       const root = F.node(parent, 'ExitSign', pos, rot);
       F.box(root, [0.42, 0.17, 0.06], [0, 0, 0], 'metal');
       F.quad(root, [0.38, 0.14], [0, 0, -0.031], [0, 0, 0], 'exit_sign');
-      const l = new THREE.PointLight(0x5cff80, 1.6, 3.4, 1.6);
-      place(l, [0, -0.15, -0.25]); root.add(l);
+      if (p.light !== false) {
+        const l = new THREE.PointLight(0x5cff80, 1.8, 4.2, 1.6);
+        place(l, [0, -0.15, -0.25]); root.add(l);
+      }
+      break;
+    }
+    case 'printer': {
+      const root = F.node(parent, id || 'Printer', pos, rot);
+      F.box(root, [0.9, 0.72, 0.6], [0, 0.36, 0], 'metal_dark');            // 받침장
+      F.box(root, [0.62, 0.3, 0.5], [0, 0.87, 0.02], 'printer_body');     // 본체
+      F.box(root, [0.56, 0.05, 0.22], [0, 1.045, 0.1], 'plastic_dark');   // 덮개
+      F.box(root, [0.46, 0.02, 0.26], [0, 0.765, -0.32], 'plastic');      // 출력 받침
+      F.box(root, [0.2, 0.05, 0.02], [0.18, 0.95, -0.231], 'plastic_dark'); // 조작부
+      const led = F.box(root, [0.02, 0.012, 0.006], [0.25, 0.97, -0.242], 'led_green');
+      led.userData.dynamic = true;
+      // 나오는 종이 (처음엔 본체 안에 숨어 있다)
+      const sheet = F.node(root, 'Sheet', [0, 0.79, -0.06]);
+      sheet.userData.dynamic = true;
+      const paper = F.box(sheet, [0.21, 0.004, 0.297], [0, 0, 0], 'paper', [-6, 0, 0], 0);
+      paper.castShadow = false;
+      const pile = F.node(root, 'Pile', [0, 0.776, -0.33]); pile.userData.dynamic = true; pile.visible = false;
+      F.box(pile, [0.21, 0.01, 0.297], [0, 0, 0], 'paper', [0, 4, 0], 0);
+      const it = new Interactable(id || 'Printer'); reg.its.set(id || 'Printer', it); reg.anchors.set(id || 'Printer', root);
+      proxy(reg, root, [0, 0.55, 0], [0.92, 1.1, 0.7], it);
+      grid.rect(p.pos[0], p.pos[1], 0.9, 0.62, rot, grid.block);
+      reg.printer = { root, sheet, pile, led, ledOn: F.M.get('led_amber'), ledIdle: F.M.get('led_green'), t: -1, closedZ: -0.06 };
+      break;
+    }
+    case 'projector': {
+      const root = F.node(parent, id || 'Projector', pos, rot);
+      root.userData.dynamic = true;
+      F.box(root, [0.3, 0.1, 0.24], [0, 0.05, 0], 'plastic');
+      F.cyl(root, 0.035, 0.03, [0, 0.05, -0.13], 'black', [90, 0, 0], 10);
+      const led = F.box(root, [0.015, 0.008, 0.006], [0.11, 0.08, -0.121], 'led_blue');
+      const it = new Interactable(id || 'Projector'); reg.its.set(id || 'Projector', it); reg.anchors.set(id || 'Projector', root);
+      proxy(reg, root, [0, 0.08, 0], [0.4, 0.2, 0.36], it);
+      // 벽에 비치는 화면과 빛줄기 (처음엔 꺼짐)
+      let screen = null, beam = null;
+      if (p.screen) {
+        const sc = p.screen, sz = sc.size || [2.0, 1.2];
+        const sm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.32, 0.42, 0.58) });
+        screen = F.node(parent, (id || 'Projector') + '_Screen', [sc.pos[0], sc.y ?? 1.4, sc.pos[1]], sc.rot || 0);
+        screen.userData.dynamic = true;
+        F.mesh(screen, new THREE.PlaneGeometry(sz[0], sz[1]), sm, [0, 0, 0], [0, 0, 0], false);
+        screen.visible = false;
+        const dx = sc.pos[0] - p.pos[0], dz = sc.pos[1] - p.pos[1], len = Math.hypot(dx, dz);
+        const bm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.45, 0.6), transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide });
+        const cone = new THREE.Mesh(new THREE.CylinderGeometry(sz[0] * 0.5, 0.03, len, 4, 1, true), bm);
+        const mid = new THREE.Vector3((p.pos[0] + sc.pos[0]) / 2, ((p.y || 0.76) + 0.05 + (sc.y ?? 1.4)) / 2, -(p.pos[1] + sc.pos[1]) / 2);
+        cone.position.copy(mid);
+        cone.lookAt(new THREE.Vector3(sc.pos[0], sc.y ?? 1.4, -sc.pos[1]));
+        cone.rotateX(-Math.PI / 2);
+        cone.userData.dynamic = true; cone.visible = false;
+        reg.root.add(cone); beam = cone;
+      }
+      reg.projector = { root, led, screen, beam, on: false };
+      break;
+    }
+    case 'rack': {
+      const root = F.node(parent, 'Rack', pos, rot);
+      F.box(root, [0.62, 2.0, 0.9], [0, 1.0, 0], 'metal_dark');
+      F.quad(root, [0.56, 1.9], [0, 1.0, -0.452], [0, 0, 0], 'rack');
+      proxy(reg, root, [0, 1.0, 0], [0.62, 2.0, 0.9]);
+      grid.rect(p.pos[0], p.pos[1], 0.62, 0.9, rot, grid.block);
+      break;
+    }
+    case 'table': {
+      const [tw, td] = p.size || [3.0, 1.2];
+      const root = F.node(parent, id || 'Table', pos, rot);
+      F.box(root, [tw, 0.04, td], [0, 0.74, 0], 'desk_top');
+      for (const sx of [-1, 1]) F.box(root, [0.08, 0.72, td * 0.6], [sx * (tw / 2 - 0.25), 0.36, 0], 'metal_dark');
+      if (id) addIt(id, root, [0, 0.38, 0], [tw, 0.76, td]); else proxy(reg, root, [0, 0.38, 0], [tw, 0.76, td]);
+      grid.rect(p.pos[0], p.pos[1], tw, td, rot, grid.block);
+      const n = p.chairs || 6, per = Math.ceil(n / 2);
+      for (let k = 0; k < n; k++) {
+        const side = k < per ? -1 : 1, idx = k % per;
+        const cx = -tw / 2 + (idx + 0.5) * (tw / per) + (Math.sin(k * 7.1) * 0.08);
+        const cz = side * (td / 2 + 0.38);
+        const r = rot * D, cs = Math.cos(r), sn = Math.sin(r);
+        const wx = p.pos[0] + cx * cs + cz * sn, wz = p.pos[1] - cx * sn + cz * cs;
+        chair(F, reg, root, [cx, 0, cz], (side < 0 ? 0 : 180) + Math.sin(k * 3.3) * 14);
+        grid.rect(wx, wz, 0.5, 0.5, rot, grid.block);
+      }
       break;
     }
     case 'elevator': {
@@ -716,8 +908,12 @@ function buildProp(F, reg, parent, p) {
       const body = new THREE.Mesh(boxGeo(0.11, 0.1, 0.18), F.M.get('plastic')); body.position.z = 0.02; head.add(body);
       const lens = new THREE.Mesh(boxGeo(0.06, 0.06, 0.04), F.M.get('black')); lens.position.z = 0.12; head.add(lens);
       const led = new THREE.Mesh(boxGeo(0.015, 0.015, 0.01), F.M.get('black')); led.position.set(0.04, 0.035, 0.115); head.add(led);
-      head.lookAt(new THREE.Vector3(-4.6, 1.0, 3.6));
-      reg.cctv = { root, head, led, ledOn: F.M.get('led_red'), ledOff: F.M.get('black'), tracking: false, servoCd: 0 };
+      const lk = p.look || [-4.6, 1.0, -3.6];
+      root.updateMatrixWorld(true);
+      head.lookAt(new THREE.Vector3(lk[0], lk[1], -lk[2]));
+      const cam = { id, root, head, led, ledOn: F.M.get('led_red'), ledOff: F.M.get('black'), tracking: false, servoCd: 0, look: lk };
+      reg.cctvs.set(id, cam);
+      if (!reg.cctv) reg.cctv = cam;
       reg.anchors.set(id, root);
       break;
     }
@@ -833,4 +1029,249 @@ export function buildMonster(mats, parent, faceTex) {
     const c = new THREE.Mesh(g, cable); c.castShadow = true; spine.add(c);
   }
   return { root, P, face, screen: scr, phase: 0, jitter: 0, jitterT: 0, head };
+}
+
+// ---------- 빛나는 점·연기 텍스처 (캔버스로 만든다) ----------
+function radialTex(stops, size = 64) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  for (const [o, col] of stops) gr.addColorStop(o, col);
+  g.fillStyle = gr; g.fillRect(0, 0, size, size);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+let EYE_TEX = null, SMOKE_TEX = null;
+function eyeTex() { return EYE_TEX || (EYE_TEX = radialTex([[0, 'rgba(255,255,255,1)'], [0.18, 'rgba(235,242,255,1)'], [0.4, 'rgba(150,180,255,0.45)'], [1, 'rgba(60,90,200,0)']])); }
+function smokeTex() { return SMOKE_TEX || (SMOKE_TEX = radialTex([[0, 'rgba(0,0,0,0.95)'], [0.5, 'rgba(0,0,0,0.55)'], [1, 'rgba(0,0,0,0)']])); }
+
+// ---------- 그것 (존재): 빛 없이 검은 형체 + 빛나는 눈. 구하지 못한 사람마다 눈이 늘어난다 ----------
+// three 좌표로 만든다 (앞 = -z). 빛을 만들지 않아 셰이더·조명 수가 그대로다.
+export function buildEntity(mats, parent) {
+  const black = mats.get('ent_black');
+  const root = new THREE.Group(); root.name = 'Entity'; root.userData.dynamic = true; parent.add(root);
+  const P = {};
+  const mesh = (geo, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, black); m.position.set(x, y, z); return m; };
+  const hips = new THREE.Group(); hips.position.y = 1.18; root.add(hips); P.hips = hips;
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Group(); leg.position.set(0.09 * s, 0, 0); hips.add(leg);
+    leg.add(mesh(new THREE.CylinderGeometry(0.06, 0.025, 1.2, 6), 0, -0.6, 0));
+    P['leg' + s] = leg;
+  }
+  const spine = new THREE.Group(); spine.rotation.x = -0.28; hips.add(spine); P.spine = spine;
+  const torso = mesh(new THREE.CylinderGeometry(0.17, 0.08, 0.78, 7), 0, 0.39, 0); torso.scale.z = 0.55; spine.add(torso);
+  for (const s of [-1, 1]) {
+    const sh = new THREE.Group(); sh.position.set(0.17 * s, 0.72, 0); sh.rotation.z = 0.08 * s; spine.add(sh);
+    sh.add(mesh(new THREE.CylinderGeometry(0.035, 0.022, 0.78, 5), 0, -0.39, 0));
+    const el = new THREE.Group(); el.position.y = -0.78; sh.add(el);
+    el.add(mesh(new THREE.CylinderGeometry(0.022, 0.012, 0.74, 5), 0, -0.37, 0));
+    for (let f = 0; f < 4; f++) {
+      const fg = mesh(new THREE.CylinderGeometry(0.006, 0.002, 0.22, 4), (f - 1.5) * 0.014, -0.84, 0);
+      fg.rotation.z = (f - 1.5) * 0.1; el.add(fg);
+    }
+    P['sh' + s] = sh; P['el' + s] = el;
+  }
+  const neck = new THREE.Group(); neck.position.set(0, 0.78, -0.02); spine.add(neck); P.neck = neck;
+  neck.add(mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.2, 5), 0, 0.1, 0));
+  const head = new THREE.Group(); head.position.y = 0.3; neck.add(head); P.head = head;
+  const skull = mesh(new THREE.SphereGeometry(0.12, 8, 6)); skull.scale.set(0.85, 1.35, 0.9); head.add(skull);
+  // 눈: 머리 → 목 → 어깨 순서로 늘어난다
+  const eyeMat = new THREE.MeshBasicMaterial({ map: eyeTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  const spots = [
+    [head, -0.042, 0.02, -0.11], [head, 0.042, 0.02, -0.11],
+    [head, 0.0, 0.11, -0.095], [head, -0.07, -0.06, -0.09], [head, 0.075, 0.075, -0.085], [head, 0.02, -0.1, -0.09],
+    [spine, -0.06, 0.62, -0.1], [spine, 0.08, 0.55, -0.1], [spine, -0.11, 0.42, -0.09], [spine, 0.03, 0.35, -0.1],
+    [spine, 0.12, 0.66, -0.08], [spine, -0.02, 0.5, -0.11], [spine, 0.07, 0.25, -0.09], [spine, -0.09, 0.2, -0.08],
+  ];
+  const eyes = spots.map(([par, x, y, z], i) => {
+    const e = new THREE.Mesh(new THREE.PlaneGeometry(i < 2 ? 0.05 : 0.038, i < 2 ? 0.05 : 0.038), eyeMat);
+    e.position.set(x, y, z); e.rotation.y = Math.PI; e.visible = false; par.add(e); return e;
+  });
+  // 가장자리 연기 (반투명 검은 점들)
+  const smokeMat = new THREE.SpriteMaterial({ map: smokeTex(), transparent: true, depthWrite: false, opacity: 0.55, color: 0x000000 });
+  const smoke = [];
+  for (let k = 0; k < 9; k++) {
+    const sp = new THREE.Sprite(smokeMat); const sc = 0.35 + (k % 3) * 0.12; sp.scale.set(sc, sc * 1.4, 1);
+    sp.userData.ph = k * 0.7; sp.userData.r = 0.12 + (k % 4) * 0.05; sp.userData.y = 0.5 + k * 0.17;
+    root.add(sp); smoke.push(sp);
+  }
+  const ent = { root, P, eyes, smoke, eyeMat, phase: 0, jitter: 0, jitterT: 0, n: 2 };
+  ent.setEyes = (n) => { ent.n = n; eyes.forEach((e, i) => { e.visible = i < n; }); };
+  ent.setEyes(2);
+  return ent;
+}
+
+export function animEntity(e, dt, time, speed = 0) {
+  const P = e.P, moving = speed > 0.1;
+  e.phase += dt * (moving ? 2.2 : 0.6);
+  P.hips.position.y = 1.18 + Math.sin(e.phase) * (moving ? 0.03 : 0.012);
+  P.spine.rotation.x = -0.28 + Math.sin(time * 0.7) * 0.03;
+  for (const s of [-1, 1]) {
+    P['leg' + s].rotation.x = moving ? Math.sin(e.phase + (s > 0 ? 0 : Math.PI)) * 0.25 : 0;
+    P['sh' + s].rotation.x = 0.15 + Math.sin(time * 0.9 + s) * 0.05 + (moving ? 0.2 : 0);
+    P['el' + s].rotation.x = 0.1 + Math.sin(time * 1.3 + s * 2) * 0.04;
+  }
+  e.jitterT -= dt;
+  if (e.jitterT <= 0) { e.jitterT = 0.15 + Math.random() * 1.2; e.jitter = (Math.random() * 2 - 1) * (Math.random() < 0.25 ? 0.6 : 0.15); }
+  P.head.rotation.z += (e.jitter - P.head.rotation.z) * Math.min(1, dt * 20);
+  P.head.rotation.x = 0.2;
+  for (const sp of e.smoke) {
+    const u = sp.userData, a = time * 0.5 + u.ph;
+    sp.position.set(Math.cos(a) * u.r, u.y + Math.sin(time * 0.8 + u.ph) * 0.06, Math.sin(a) * u.r * 0.6);
+  }
+  const pulse = 0.75 + 0.25 * Math.sin(time * 3.1);
+  e.eyeMat.opacity = pulse;
+}
+
+// ---------- 모니터 옆에서 뻗어 나오는 손 ----------
+// three 좌표: 손끝 = -z 방향, 팔은 +z(어둠) 쪽으로 길게 이어진다
+export function buildHand(mats, parent) {
+  const m = mats.get('ent_hand');
+  const root = new THREE.Group(); root.name = 'Hand'; root.userData.dynamic = true; parent.add(root);
+  const mk = (geo, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; return o; };
+  const arm = mk(new THREE.CylinderGeometry(0.03, 0.04, 0.9, 6), 0, 0, 0.5); arm.rotation.x = Math.PI / 2; root.add(arm);
+  const palm = mk(new THREE.BoxGeometry(0.075, 0.022, 0.09), 0, 0, 0.0); root.add(palm);
+  const fingers = [];
+  for (let f = 0; f < 4; f++) {
+    const base = new THREE.Group(); base.position.set((f - 1.5) * 0.02, 0, -0.045); root.add(base);
+    let par = base;
+    const segs = [];
+    for (let k = 0; k < 3; k++) {
+      const len = [0.075, 0.06, 0.05][k] * (f === 1 || f === 2 ? 1.15 : 1);
+      const g = new THREE.Group(); par.add(g);
+      if (k > 0) g.position.z = -[0.075, 0.06, 0.05][k - 1] * (f === 1 || f === 2 ? 1.15 : 1);
+      const seg = mk(new THREE.CylinderGeometry(0.0075 - k * 0.0015, 0.0085 - k * 0.0015, len, 5), 0, 0, -len / 2); seg.rotation.x = Math.PI / 2; g.add(seg);
+      segs.push(g); par = g;
+    }
+    fingers.push(segs);
+  }
+  const thumb = new THREE.Group(); thumb.position.set(-0.04, 0, -0.01); thumb.rotation.y = 0.7; root.add(thumb);
+  const ts = mk(new THREE.CylinderGeometry(0.008, 0.009, 0.07, 5), 0, 0, -0.035); ts.rotation.x = Math.PI / 2; thumb.add(ts);
+  root.position.set(0, -60, 0);
+  return { root, fingers, thumb };
+}
+/** curl: 0 = 펴짐, 1 = 책상 모서리를 움켜쥠. tap: 검지를 들었다 내림 (0..1) */
+export function poseHand(h, curl, tap = 0) {
+  h.fingers.forEach((segs, f) => {
+    const c = curl * (f === 1 ? 1 - tap * 0.9 : 1);
+    segs[0].rotation.x = -c * 0.55 + (f === 1 ? tap * 0.5 : 0);
+    segs[1].rotation.x = -c * 0.75;
+    segs[2].rotation.x = -c * 0.6;
+  });
+}
+
+// ---------- 겁쟁이 모드: 춤추는 아저씨 (오리지널 로우폴리) ----------
+// 민머리, 아이보리 V넥 반팔, 베이지 통바지, 검은 쿵후화. three 좌표 (앞 = -z)
+export function buildUncle(mats, parent) {
+  const skin = mats.get('uncle_skin'), shirt = mats.get('uncle_shirt'), pants = mats.get('uncle_pants'), shoe = mats.get('uncle_shoe');
+  const root = new THREE.Group(); root.name = 'Uncle'; root.userData.dynamic = true; parent.add(root);
+  const P = {};
+  const mk = (geo, mat, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; return o; };
+  const hips = new THREE.Group(); hips.position.y = 0.92; root.add(hips); P.hips = hips;
+  hips.add(mk(boxGeo(0.36, 0.16, 0.22, 0), pants, 0, 0, 0));
+  for (const s of [-1, 1]) {
+    const th = new THREE.Group(); th.position.set(0.1 * s, -0.04, 0); hips.add(th);
+    const leg = mk(new THREE.CylinderGeometry(0.085, 0.12, 0.84, 7), pants, 0, -0.42, 0); th.add(leg); // 통바지: 아래로 넓어진다
+    th.add(mk(boxGeo(0.1, 0.06, 0.26, 0), shoe, 0, -0.86, -0.04));
+    P['th' + s] = th;
+  }
+  const spine = new THREE.Group(); spine.position.y = 0.08; hips.add(spine); P.spine = spine;
+  const body = mk(boxGeo(0.4, 0.5, 0.24, 0), shirt, 0, 0.25, 0); spine.add(body);
+  const belly = mk(new THREE.SphereGeometry(0.16, 8, 6), shirt, 0, 0.14, -0.06); belly.scale.set(1.15, 0.9, 0.8); spine.add(belly);
+  const vneck = mk(new THREE.CylinderGeometry(0.0, 0.07, 0.11, 3), skin, 0, 0.45, -0.121); vneck.rotation.set(Math.PI / 2, 0, Math.PI); vneck.scale.z = 0.05; spine.add(vneck);
+  for (const s of [-1, 1]) {
+    const sh = new THREE.Group(); sh.position.set(0.23 * s, 0.45, 0); spine.add(sh);
+    sh.add(mk(new THREE.CylinderGeometry(0.065, 0.06, 0.16, 7), shirt, 0, -0.07, 0)); // 반팔 소매
+    sh.add(mk(new THREE.CylinderGeometry(0.045, 0.04, 0.26, 6), skin, 0, -0.27, 0));
+    const el = new THREE.Group(); el.position.y = -0.4; sh.add(el);
+    el.add(mk(new THREE.CylinderGeometry(0.04, 0.034, 0.26, 6), skin, 0, -0.13, 0));
+    el.add(mk(boxGeo(0.06, 0.08, 0.035, 0), skin, 0, -0.3, 0));
+    P['sh' + s] = sh; P['el' + s] = el;
+  }
+  const neck = new THREE.Group(); neck.position.y = 0.5; spine.add(neck); P.neck = neck;
+  neck.add(mk(new THREE.CylinderGeometry(0.06, 0.065, 0.08, 7), skin, 0, 0.04, 0));
+  const head = new THREE.Group(); head.position.y = 0.2; neck.add(head); P.head = head;
+  const skull = mk(new THREE.SphereGeometry(0.135, 10, 8), skin, 0, 0, 0); skull.scale.set(0.95, 1.08, 1.0); head.add(skull);
+  for (const s of [-1, 1]) head.add(mk(new THREE.SphereGeometry(0.03, 6, 5), skin, 0.13 * s, -0.01, 0));
+  // 얼굴 (오리지널 만화풍 텍스처)
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), mats.get('uncle_face'));
+  face.position.set(0, -0.005, -0.128); face.rotation.y = Math.PI; head.add(face);
+  root.position.set(0, -60, 0);
+  return { root, P, phase: 0 };
+}
+
+/** 옆으로 빠지는 보법 + 팔을 활짝 벌리는 춤 */
+export function animUncle(u, dt, time) {
+  const P = u.P;
+  u.phase += dt * 4.2;
+  const ph = u.phase, beat = Math.sin(ph), half = Math.sin(ph * 0.5);
+  P.hips.position.x = half * 0.16;
+  P.hips.position.y = 0.92 - Math.abs(beat) * 0.06;
+  P.hips.rotation.z = half * 0.08;
+  P.spine.rotation.z = -half * 0.12;
+  P.spine.rotation.y = Math.sin(ph * 0.5 + 0.6) * 0.25;
+  for (const s of [-1, 1]) {
+    P['th' + s].rotation.z = (half * s > 0 ? 0.35 : 0.05) * s;
+    P['th' + s].rotation.x = Math.max(0, Math.sin(ph + (s > 0 ? 0 : Math.PI))) * 0.25;
+    const open = 1.25 + Math.sin(ph + s) * 0.25;
+    P['sh' + s].rotation.z = open * s;
+    P['sh' + s].rotation.x = Math.sin(ph * 0.5 + s) * 0.3;
+    P['el' + s].rotation.z = (0.35 + Math.sin(ph * 2 + s) * 0.25) * s;
+  }
+  P.head.rotation.z = Math.sin(ph) * 0.12;
+  P.head.rotation.x = -0.05 + Math.abs(beat) * 0.08;
+}
+
+// ---------- 추격용 길찾기 (거친 격자 BFS + 시야 잇기) ----------
+export class NavGrid {
+  constructor(grid, cell = 0.25, r = 0.28) {
+    this.grid = grid; this.cell = cell;
+    this.x0 = grid.X0; this.z0 = grid.Z0;
+    this.w = Math.floor((grid.w * 0.05) / cell); this.h = Math.floor((grid.h * 0.05) / cell);
+    this.free = new Uint8Array(this.w * this.h);
+    for (let j = 0; j < this.h; j++) for (let i = 0; i < this.w; i++) {
+      const x = this.x0 + (i + 0.5) * cell, z = this.z0 + (j + 0.5) * cell;
+      this.free[j * this.w + i] = grid.circleFree(x, z, r) ? 1 : 0;
+    }
+    this.prev = new Int32Array(this.w * this.h);
+    this.queue = new Int32Array(this.w * this.h);
+  }
+  idx(x, z) { const i = Math.floor((x - this.x0) / this.cell), j = Math.floor((z - this.z0) / this.cell); if (i < 0 || j < 0 || i >= this.w || j >= this.h) return -1; return j * this.w + i; }
+  nearestFree(k) {
+    if (k >= 0 && this.free[k]) return k;
+    if (k < 0) return -1;
+    const ci = k % this.w, cj = (k / this.w) | 0;
+    for (let rad = 1; rad < 8; rad++) for (let dj = -rad; dj <= rad; dj++) for (let di = -rad; di <= rad; di++) {
+      const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= this.w || j >= this.h) continue;
+      const q = j * this.w + i; if (this.free[q]) return q;
+    }
+    return -1;
+  }
+  /** 배치(Unity) 좌표 a → b 경로점들 (없으면 null) */
+  path(ax, az, bx, bz) {
+    const s = this.nearestFree(this.idx(ax, az)), g = this.nearestFree(this.idx(bx, bz));
+    if (s < 0 || g < 0) return null;
+    const prev = this.prev; prev.fill(-1);
+    const q = this.queue; let qh = 0, qt = 0;
+    q[qt++] = s; prev[s] = s;
+    const W = this.w;
+    const nb = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1];
+    while (qh < qt) {
+      const k = q[qh++]; if (k === g) break;
+      const ki = k % W;
+      for (let n = 0; n < 8; n++) {
+        const d = nb[n], nk = k + d;
+        if (nk < 0 || nk >= this.free.length || prev[nk] !== -1 || !this.free[nk]) continue;
+        const ni = nk % W; if (Math.abs(ni - ki) > 1) continue;
+        if (n >= 4 && (!this.free[k + (d > 0 ? (d === W + 1 ? 1 : -1) : (d === -W + 1 ? 1 : -1))] || !this.free[k + (d > 0 ? W : -W)])) continue;
+        prev[nk] = k; q[qt++] = nk;
+      }
+    }
+    if (prev[g] === -1) return null;
+    const pts = [];
+    for (let k = g; k !== s; k = prev[k]) pts.push([this.x0 + ((k % W) + 0.5) * this.cell, this.z0 + (((k / W) | 0) + 0.5) * this.cell]);
+    pts.reverse();
+    pts.push([bx, bz]);
+    return pts;
+  }
 }
