@@ -156,8 +156,46 @@ namespace NightEval.World
             if (jitterT <= 0f) { jitterT = 0.08f + UnityEngine.Random.value * (moving ? 0.4f : 0.9f); jitter = (UnityEngine.Random.value * 2f - 1f) * (UnityEngine.Random.value < 0.3f ? 0.55f : 0.16f); }
             headZ += (jitter - headZ) * Mathf.Min(1f, dt * 26f);
             Rot("neck", -0.05f, 0, headZ * 0.4f);
-            Rot("head", -0.15f, 0, headZ * 0.6f);
+            Rot("head", -0.15f + extraTiltX, 0, headZ * 0.6f + extraTilt);
             return moving && s0 != 0f && Mathf.Sign(prev) != Mathf.Sign(s0);
         }
+        float extraTilt, extraTiltX;
+
+        /// <summary>그것: 팔을 길게 늘어뜨리고 고개를 꺾은 채 서 있다 (움직일 때는 느리게)</summary>
+        public void Creep(float dt, float speed)
+        {
+            extraTilt = 0.42f; extraTiltX = 0.2f;
+            Walk(dt, speed, false);
+            extraTilt = 0f; extraTiltX = 0f;
+            float time = Time.time;
+            Rot("leftUpperArm", Mathf.Sin(time * 0.8f) * 0.03f, 0, 1.42f);
+            Rot("rightUpperArm", Mathf.Sin(time * 0.8f + Mathf.PI) * 0.03f, 0, -1.42f);
+            Rot("spine", -0.15f, 0, 0);
+            Rot("chest", -0.1f, Mathf.Sin(time * 0.37f) * 0.06f, Mathf.Sin(time * 0.5f) * 0.03f);
+        }
+
+        /// <summary>겁쟁이 모드: 옆으로 빠지는 보법 + 팔을 활짝 벌리는 춤</summary>
+        public void Dance(float dt)
+        {
+            if (B.Count == 0) return;
+            Reset();
+            phase += dt * 4.2f;
+            float ph = phase, beat = Mathf.Sin(ph), half = Mathf.Sin(ph * 0.5f);
+            float u = hipsRest.y > 0.01f ? hipsRest.y / 0.92f : 1f;
+            if (B.TryGetValue("hips", out var hp)) hp.localPosition = hipsRest + new Vector3(-half * 0.16f * u, -Mathf.Abs(beat) * 0.06f * u, 0); // x 뒤집기
+            Rot("hips", 0, 0, half * 0.08f);
+            Rot("spine", 0, Mathf.Sin(ph * 0.5f + 0.6f) * 0.25f, -half * 0.12f);
+            for (int side = 0; side < 2; side++)
+            {
+                string n = side == 0 ? "left" : "right"; float sgn = side == 0 ? -1f : 1f;
+                Rot(n + "UpperLeg", Mathf.Max(0f, Mathf.Sin(ph + (sgn > 0 ? 0f : Mathf.PI))) * 0.25f, 0, (half * sgn > 0 ? 0.35f : 0.05f) * sgn);
+                float open = 1.25f + Mathf.Sin(ph + sgn) * 0.25f;
+                Rot(n + "UpperArm", Mathf.Sin(ph * 0.5f + sgn) * 0.3f, 0, -sgn * (Mathf.PI / 2f - open));
+                Rot(n + "LowerArm", 0, 0, sgn * (0.35f + Mathf.Sin(ph * 2f + sgn) * 0.25f));
+            }
+            Rot("head", -0.05f + Mathf.Abs(beat) * 0.08f, 0, Mathf.Sin(ph) * 0.12f);
+        }
+
+        public Transform Bone(string k) => B.TryGetValue(k, out var b) ? b : null;
     }
 }

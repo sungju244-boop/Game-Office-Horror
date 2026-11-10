@@ -9,6 +9,8 @@ namespace NightEval
         public float MasterVolume = 0.8f;    // 0~1
         public float MusicVolume = 0.7f;     // 0~1
         public float MouseSensitivity = 0.45f; // 0~1
+        public bool Chicken;                 // 겁쟁이 모드
+        public bool English;                 // 언어: 영어
 
         public const int EndingCount = 6;
 
@@ -19,7 +21,9 @@ namespace NightEval
                 Brightness = PlayerPrefs.GetFloat("ne_brightness", 0.5f),
                 MasterVolume = PlayerPrefs.GetFloat("ne_master", 0.8f),
                 MusicVolume = PlayerPrefs.GetFloat("ne_music", 0.7f),
-                MouseSensitivity = PlayerPrefs.GetFloat("ne_sens", 0.45f)
+                MouseSensitivity = PlayerPrefs.GetFloat("ne_sens", 0.45f),
+                Chicken = PlayerPrefs.GetInt("ne_chicken", 0) == 1,
+                English = PlayerPrefs.GetInt("ne_lang_en", 0) == 1
             };
         }
 
@@ -29,6 +33,8 @@ namespace NightEval
             PlayerPrefs.SetFloat("ne_master", MasterVolume);
             PlayerPrefs.SetFloat("ne_music", MusicVolume);
             PlayerPrefs.SetFloat("ne_sens", MouseSensitivity);
+            PlayerPrefs.SetInt("ne_chicken", Chicken ? 1 : 0);
+            PlayerPrefs.SetInt("ne_lang_en", English ? 1 : 0);
             PlayerPrefs.Save();
         }
 

@@ -47,6 +47,43 @@ namespace NightEval.UI
             fade.color = new Color(0, 0, 0, 0);
         }
 
+        // ---------- 깜짝 장면: 화면 가득한 얼굴 (공포: 확대·흔들림 / 겁쟁이 모드: 민트 화면 가운데 휴지 얼굴) ----------
+        RectTransform jsRoot; RawImage jsImg; Image jsBg; float jsT, jsDur; string jsKind;
+
+        public void Jumpscare(string kind, float dur)
+        {
+            if (jsRoot == null)
+            {
+                var canvas = UIKit.OverlayCanvas(transform, "Jumpscare", 45);
+                jsRoot = (RectTransform)canvas.transform;
+                jsBg = UIKit.Panel(UIKit.Stretch(jsRoot, "Bg"), Color.black);
+                var rt = UIKit.Fixed(jsRoot, "Face", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1000, 1000));
+                jsImg = rt.gameObject.AddComponent<RawImage>(); jsImg.raycastTarget = false;
+            }
+            jsKind = kind; jsT = jsDur = dur;
+            jsImg.texture = Res.Tex(kind == "tp" ? "js2_tp" : kind == "ent" ? "js2_ent" : "js2_sup", false);
+            jsBg.color = kind == "tp" ? new Color(0.5f, 0.88f, 0.82f) : Color.black;
+            jsRoot.gameObject.SetActive(true);
+        }
+        public void HideJumpscare() { jsT = 0f; if (jsRoot != null) jsRoot.gameObject.SetActive(false); }
+
+        void UpdateJumpscare()
+        {
+            if (jsT <= 0f || jsRoot == null) return;
+            jsT -= Time.unscaledDeltaTime;
+            float k = 1f - jsT / jsDur;
+            var size = jsRoot.rect.size;
+            var rt = (RectTransform)jsImg.transform;
+            if (jsKind == "tp") { float m = Mathf.Min(size.x, size.y) * 0.84f; rt.sizeDelta = new Vector2(m, m); rt.anchoredPosition = new Vector2(0, Mathf.Sin(k * 30f) * 8f); }
+            else
+            {
+                float m = Mathf.Max(size.x, size.y) * Mathf.Lerp(0.85f, 1.15f, 1f - Mathf.Pow(1f - Mathf.Min(1f, k * 1.6f), 3f));
+                rt.sizeDelta = new Vector2(m, m);
+                rt.anchoredPosition = new Vector2(Random.Range(-14f, 14f), Random.Range(-14f, 14f));
+            }
+            if (jsT <= 0f) jsRoot.gameObject.SetActive(false);
+        }
+
         static void AddShadow(Text t)
         {
             var sh = t.gameObject.AddComponent<Shadow>();
@@ -152,6 +189,7 @@ namespace NightEval.UI
 
         void Update()
         {
+            UpdateJumpscare();
             // 목표 힌트는 처음엔 또렷하다가 점점 흐려진다 (화면을 가리지 않게)
             if (objective.text.Length > 0)
             {

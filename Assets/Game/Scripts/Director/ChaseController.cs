@@ -25,7 +25,19 @@ namespace NightEval.Director
         WorldRegistry w;
         PropFactory pf;
         GameObject sup;
-        FigureRig rig;
+        FigureDirector.Fig fig;
+        public const float UncleSpeed = 1.2f; // 겁쟁이 모드: 걷기 속도의 1/4 정도로 춤추며 다가온다
+        float voiceT = 0.3f; bool voiceB;
+
+        /// <summary>겁쟁이 모드: 영상 속 "샨쎈부!"(A)와 "랑쓰티치오우!"(C)를 쉬지 않고 번갈아</summary>
+        void ChickenVoice()
+        {
+            voiceT -= Time.deltaTime;
+            if (voiceT > 0f) return;
+            voiceB = !voiceB;
+            s.Audio.PlayAt(voiceB ? "tp_a" : "tp_c", sup.transform.position + Vector3.up * 1.4f, 1f, 0f, 30f);
+            voiceT = (voiceB ? 0.78f : 1.1f) + 0.12f;
+        }
         AudioSource voice;
         readonly List<Vector3> trail = new List<Vector3>();
         Action<bool> onDone;
@@ -54,20 +66,12 @@ namespace NightEval.Director
             var spawn = w.Anchor("SupSpawn");
             Vector3 start = spawn != null ? spawn.position : new Vector3(13.4f, 0f, 7.6f);
             start.y = 0f;
-            sup = new GameObject("Supervisor");
-            sup.transform.SetParent(w.Root, false);
-            sup.transform.position = start;
-            GameObject model = null;
-            yield return FigureLoader.Load("sup", sup.transform, m => model = m);
-            if (model != null)
-            {
-                rig = sup.AddComponent<FigureRig>();
-                rig.Setup(model, FigureLoader.ReadBones("sup"), 2.1f);
-            }
-            else BoxFigure(sup.transform);
-            Vector3 toPlayer = Flat(s.Player.transform.position - start);
-            if (toPlayer.sqrMagnitude > 0.01f) sup.transform.rotation = Quaternion.LookRotation(toPlayer.normalized);
-            voice = s.Audio.Loop3D("mon_breath", rig != null ? rig.Head : sup.transform, 0.8f, 0.8f, 14f);
+            while (!s.Figures.Ready) yield return null;
+            bool chicken = s.Figures.Chicken;
+            fig = s.Figures.Show("sup", start, FigureDirector.YawTo(start, s.Player.transform.position), chicken ? 0f : 0.9f);
+            sup = fig.Root;
+            if (chicken) { SpeedStart = SpeedMax = UncleSpeed; }
+            else voice = s.Audio.Loop3D("mon_breath", fig.Head, 0.8f, 0.8f, 14f);
 
             // 서버실 문이 열리고, 비상구 잠금이 풀린다
             if (w.Doors.TryGetValue("ServerDoor", out var sd)) { sd.SetLocked(false); sd.SetOpen(1f, 0.8f); s.Audio.PlayAt("sfx_door_bang", sd.transform.position + Vector3.up, 0.9f, 0.03f, 30f); }
@@ -86,7 +90,6 @@ namespace NightEval.Director
             {
                 wait -= Time.deltaTime;
                 RecordTrail();
-                if (rig != null) rig.Walk(Time.deltaTime, 0f, false);
                 if (CheckEscape()) yield break;
                 yield return null;
             }
@@ -99,8 +102,9 @@ namespace NightEval.Director
                 speed = Mathf.Lerp(SpeedStart, SpeedMax, Mathf.Clamp01(t / RampTime));
                 RecordTrail();
                 MoveSup();
-                if (rig != null && rig.Walk(Time.deltaTime, speed, true))
-                    s.Audio.PlayAt("mon_step_" + (1 + stepN++ % 3), sup.transform.position, 0.9f, 0.06f, 24f);
+                fig.Speed = speed;
+                if (fig.Stepped && !s.Figures.Chicken) s.Audio.PlayAt("mon_step_" + (1 + stepN++ % 3), sup.transform.position, 0.9f, 0.06f, 24f);
+                if (s.Figures.Chicken) ChickenVoice();
                 if (CheckEscape()) yield break;
                 if (Flat(s.Player.transform.position - sup.transform.position).magnitude < CatchDistance)
                 {
@@ -190,9 +194,9 @@ namespace NightEval.Director
             s.Player.SetControl(false, false);
             if (!escaped)
             {
-                // 잡힘: 비명 + 번쩍 (깜짝 장면 그림은 2단계)
-                s.Audio.Play2D("js_shriek", 0.8f);
-                s.Post.Flash(1f);
+                // 잡힘: 깜짝 장면 (겁쟁이 모드는 휴지 얼굴 + 외침)
+                if (s.Figures.Chicken) { s.Hud.Jumpscare("tp", 1.6f); s.Audio.Play2D("tp_ac", 0.95f); }
+                else { s.Hud.Jumpscare("sup", 1.2f); s.Audio.Play2D("js_shriek", 0.8f); s.Post.Flash(1f); }
             }
             else s.Audio.PlayAt("sfx_door_open", w.Anchor("ExitDoor") != null ? w.Anchor("ExitDoor").position : s.Player.transform.position, 0.7f, 0.03f, 10f);
             onDone?.Invoke(escaped);
@@ -200,6 +204,7 @@ namespace NightEval.Director
 
         public void StopChase()
         {
+            if (fig != null) { s.Figures.Hide("sup"); fig = null; }
             finished = true;
             running = false;
             StopAllCoroutines();

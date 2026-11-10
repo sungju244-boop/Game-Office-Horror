@@ -194,6 +194,9 @@ namespace NightEval
             s.Story.Init(this, s, Story);
             s.Chase = s.Root.AddComponent<ChaseController>();
             s.Chase.Init(s);
+            s.Figures = s.Root.AddComponent<FigureDirector>();
+            s.Figures.Chicken = Settings.Chicken;
+            s.Figures.Init(s);
             s.Guide = s.Root.AddComponent<GuideDirector>();
             s.Guide.Init(this, s);
             s.Hand = s.Root.AddComponent<HandView>();
