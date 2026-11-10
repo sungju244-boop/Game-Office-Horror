@@ -3,6 +3,7 @@ import { THREE, D, postMaterial, crtCurve } from './kit.js';
 import { parseJsonc, localize, Vars, Story } from './story.js';
 import { Session } from './session.js';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
+import { FingerHand } from './fingerhand.js';
 import { TERM_W, TERM_H } from './terminal.js';
 import { t, setLang, getLang, applyDom } from './i18n.js';
 import {
@@ -45,6 +46,10 @@ async function boot() {
     await app.audio.load('audio', (p) => progress(0.3 + p * 0.65));
     try { app.audio.makePanner(1, 1, true); } catch (e) { /* 입체 음향(HRTF) 미리 준비 */ }
     setupRenderer();
+    if (app.handGltf) {
+      app.fhand = new FingerHand(app.handGltf);
+      app.renderer.setRenderTarget(app.rt); app.fhand.warm(app.renderer); app.renderer.setRenderTarget(null);
+    }
     newSession(null);
     progress(1);
     $('loading').hidden = true;
@@ -67,6 +72,7 @@ async function loadModels() {
       app.models.set(k, { scene: g.scene, bones });
     } catch (e) { console.warn('모델 로드 실패 (예전 형체로 대신함)', k, e); }
   }));
+  try { app.handGltf = (await gl.loadAsync('models/hand_right.glb')).scene; } catch (e) { console.warn('손 모델 로드 실패', e); }
 }
 
 function makeStory() { app.story = new Story(getLang() === 'en' ? localize(app.rawStory, app.dictEn) : app.rawStory); }
@@ -135,6 +141,8 @@ function adaptQuality(dt) {
 function applyScale() { app.renderer.setPixelRatio(Q.base * Q.scale); onResize(); }
 
 // ---------- 입력 ----------
+/** F키 손동작을 막는 때: 플레이 중이 아님, 메뉴·창, 미로·명령 입력, 위에서 보는 추격 화면, 엔딩 연출 */
+const handBlocked = (s) => !s || app.paused || app.phase !== 'play' || modalOpen() || !!s.term.maze || !!s.term.input || !!s.topdown || s.ending;
 const modalOpen = () => !$('chickenwarn').hidden || !$('album').hidden || !$('settings').hidden || !$('chapters').hidden || docOpen() || !$('freeze').hidden;
 function bindInput() {
   const canvas = app.renderer.domElement;
@@ -151,6 +159,7 @@ function bindInput() {
       advanceMonologue();
     }
     if ((e.code === 'Space' || e.code === 'Enter') && s.seat.seated) { s.term.click(null, null); e.preventDefault(); }
+    if (e.code === 'KeyF' && !e.repeat && app.fhand && !handBlocked(s)) app.fhand.press(app.time);
   });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -732,6 +741,7 @@ function frame() {
   app.renderer.getDrawingBufferSize(pm.resolution.value);
   app.renderer.setRenderTarget(app.rt);
   app.renderer.render(s.scene, app.camera);
+  if (app.fhand) { app.fhand.update(dt, app.time, handBlocked(s)); app.fhand.render(app.renderer, app.camera.aspect, s.chicken ? 1 : 0); }
   app.renderer.setRenderTarget(null);
   app.renderer.render(app.postScene, app.postCam);
 }
