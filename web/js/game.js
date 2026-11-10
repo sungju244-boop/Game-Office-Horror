@@ -313,6 +313,7 @@ function beginPlay() {
   app.phase = 'play';
   updateBadge();
   setObjective(t('objSeat'));
+  s.setWaypoint('Computer', '117', 0); // 처음엔 바로 자리 방향을 보여 준다
   help(t('help'), 10);
   app.flow.onSeated = () => { if ($('objective').textContent === t('objSeat')) setObjective(null); };
   s.runStory(app.story.start).catch((e) => console.error(e));
@@ -339,6 +340,7 @@ async function resumeFrom(snap, opts = {}) {
   updateBadge();
   tryLock();
   setObjective(t('objBack'));
+  s.setWaypoint('Computer', '117', 0);
   app.flow.onSeated = () => { if ($('objective').textContent === t('objBack')) setObjective(null); };
   s.runStory(snap.node).catch((e) => console.error(e));
   updateClickHint();
@@ -615,6 +617,34 @@ function openSettings() {
 function closeSettings() { $('settings').hidden = true; saveSettings(); }
 function applySettings() { app.audio.masterVol = settings.master; app.audio.musicVol = settings.music; app.audio.applyVolumes(); }
 
+/** 길 안내 표시: 목표 방향과 거리. 화면 밖이면 가장자리 화살표 */
+const _wp = new THREE.Vector3(), _wd = new THREE.Vector3();
+function updateWaypoint(s) {
+  const el = $('waypoint');
+  const w = s.wp;
+  const show = app.phase === 'play' && w && s.elapsed >= w.at && s.standing() && !s.topdown && !s.chase && !app.paused && !s.ending;
+  if (!show) { if (!el.hidden) el.hidden = true; return; }
+  const target = s.anchorPos(w.id);
+  const cam = app.camera;
+  const dist = Math.hypot(target.x - s.p.pos.x, target.z - s.p.pos.z);
+  if (dist < 1.6) { el.hidden = true; return; }
+  _wp.copy(target).project(cam);
+  cam.getWorldDirection(_wd);
+  const behind = _wd.dot(_wp.copy(target).sub(cam.position)) < 0;
+  _wp.copy(target).project(cam);
+  let x = _wp.x, y = _wp.y, edge = false;
+  if (behind) { x = -x; y = -y; }
+  const m = Math.max(Math.abs(x), Math.abs(y));
+  if (behind || m > 0.82) { x = (x / m) * 0.82; y = (y / m) * 0.82; edge = true; }
+  el.hidden = false;
+  el.classList.toggle('edge', edge);
+  $('wplabel').textContent = w.label;
+  $('wpdist').textContent = Math.round(dist) + 'm';
+  el.style.left = ((x + 1) / 2 * window.innerWidth) + 'px';
+  el.style.top = ((1 - y) / 2 * window.innerHeight) + 'px';
+  $('wparrow').style.transform = `rotate(${Math.atan2(-y, x) * 180 / Math.PI + 90}deg)`;
+}
+
 /** 위에서 내려다보는 추격 화면: 시각과 비상구 표시 (화면 밖이면 가장자리에) */
 const _ep = new THREE.Vector3();
 function updateCctvHud(s) {
@@ -650,7 +680,7 @@ function frame() {
   fx.fade += Math.sign(fx.fadeTarget - fx.fade) * Math.min(Math.abs(fx.fadeTarget - fx.fade), fx.fadeSpeed * dt);
   if (!s) return;
   if (!app.paused) {
-    if (app.phase === 'play') { s.update(dt); if (s.topdown) updateCctvHud(s); }
+    if (app.phase === 'play') { s.update(dt); if (s.topdown) updateCctvHud(s); updateWaypoint(s); }
     else if (app.phase === 'title' || app.phase === 'gate') {
       const tt = app.time, tc = s.reg.titleCam;
       app.camera.position.set(tc.pos[0] + Math.sin(tt * 0.07) * 0.25, tc.pos[1] + Math.sin(tt * 0.11) * 0.05, -(tc.pos[2] + Math.cos(tt * 0.05) * 0.15));

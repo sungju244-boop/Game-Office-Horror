@@ -109,6 +109,7 @@ export class Session {
     this.whisperT = 50 + Math.random() * 30; this.whisper = null;
     this.chairAnim = null; this.eyeShow = null; this.typing116 = null;
     this.topdown = null; this.stagger = 0; this.earObj = new THREE.Object3D();
+    this.wp = null; // 길 안내: { id, label, at } — at(경과 시간) 이후 화면에 방향·거리 표시
     this.setupFeed();
     this.setupInteractions();
     this.startAmbient();
@@ -382,6 +383,7 @@ export class Session {
     if (a.zone) { this.zones.push({ rect: a.zone, once: true, fn: done }); return; }
     const it = this.reg.its.get(a.target || '');
     if (!it) { console.warn('확인 지점 대상 없음', a.target); done(); return; }
+    if (flag) this.setWaypoint(a.target, t('wp_' + a.target), 25);
     const owner = {};
     it.add(a.prompt || t('pCheck'), () => !v.truthy(flag), () => {
       if (!done()) return;
@@ -398,6 +400,7 @@ export class Session {
     pr.t = 0; pr.led.material = pr.ledOn; pr.pile.visible = false;
     app.audio.playAt('sfx_printer', this.anchorPos('Printer'), 0.9, 22);
     const it = this.reg.its.get('Printer'), owner = {};
+    if (a.flag) this.setWaypoint('Printer', t('wp_Printer'), 25);
     it?.add(t('pTakePrint'), () => pr.t >= 2.6, async () => {
       it.removeOwner(owner);
       pr.pile.visible = false; pr.sheet.position.z = -pr.closedZ; pr.t = -1;
@@ -762,6 +765,9 @@ export class Session {
     if (app.phase === 'play' && !this.cineLock && !this.seat.seated) this.p.move = true;
   }
 
+  /** 길 안내 목표. delay 초 동안 못 찾으면 화면에 방향과 거리를 보여 준다 */
+  setWaypoint(id, label, delay = 0) { this.wp = id ? { id, label, at: this.elapsed + delay } : null; }
+
   inRect(r) { const x = this.p.pos.x, z = -this.p.pos.z; return x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3]; }
 
   /** 화면을 가까이 들여다본다 (CCTV 모니터 등). dur 초 뒤 돌아온다 */
@@ -887,7 +893,8 @@ export class Session {
       });
       setObjective(null);
     }
-    if (task.noSit) return;
+    if (task.noSit) { this.setWaypoint(null); return; }
+    this.setWaypoint('Computer', '117', 12);
     term.showCenter(t('termNew'), t('termSit'));
     this.termSfx('sfx_beep_new', 0.6);
     if (!this.seat.seated) {
@@ -1515,7 +1522,7 @@ export class Session {
       cam.position.lerpVectors(seat.from.pos, seat.toPos, e);
       cam.quaternion.slerpQuaternions(seat.from.quat, seat.toQuat, e);
       if (seat.trans >= 1) {
-        if (seat.dir > 0) { seat.seated = true; this.term.acceptInput = true; this.vars.set('sat_once', '1'); if (app.flow.onSeated) app.flow.onSeated(); }
+        if (seat.dir > 0) { seat.seated = true; this.term.acceptInput = true; this.vars.set('sat_once', '1'); if (this.wp && this.wp.id === 'Computer') this.wp = null; if (app.flow.onSeated) app.flow.onSeated(); }
         else this.finishStand();
         seat.dir = 0;
       }

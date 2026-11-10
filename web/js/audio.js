@@ -12,7 +12,7 @@ export const CLIPS = [
   'sfx_door_bang', 'sfx_heartbeat', 'mus_hunt', 'mus_cute', 'mus_cute_chase', 'sfx_boing', 'sfx_tick',
   'sfx_maze_hit', 'sfx_glass_crack', 'sfx_printer', 'sfx_key', 'sfx_keyboard_far', 'sfx_guide', 'sfx_chapter', 'sfx_alarm',
   'sfx_bsod', 'sfx_maglock', 'sfx_whisper', 'sfx_echo_scream', 'sfx_freeze', 'sfx_desk_tap', 'sfx_chair',
-  'uncle_shansenbu', 'uncle_rangspichiu', 'uncle_hum',
+  'uncle_shansenbu', 'uncle_rangspichiu', 'uncle_hum', 'mus_chicken', 'mus_chicken_chase',
 ];
 
 export class AudioSys {
@@ -46,7 +46,7 @@ export class AudioSys {
 
   startLayers() {
     const defs = [['title', 'mus_title', true], ['drone', 'mus_drone', true], ['tension', 'mus_tension', true], ['chase', 'mus_chase', true],
-      ['hunt', 'mus_hunt', true], ['cute', 'mus_cute', true], ['cutechase', 'mus_cute_chase', true],
+      ['hunt', 'mus_hunt', true], ['cute', 'mus_chicken', true], ['cutechase', 'mus_chicken_chase', true],
       ['hum', 'amb_hum', false], ['room', 'amb_room', false], ['heart', 'sfx_heartbeat', false]];
     for (const [id, clip, music] of defs) {
       if (this.layers.has(id)) continue;
