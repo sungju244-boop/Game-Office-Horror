@@ -45,6 +45,7 @@ export const UI = {
   help: ['WASD 이동 · 마우스 시점 · E 상호작용 / 앉기·일어나기 · F 손동작 · ESC 메뉴', 'WASD move · Mouse look · E interact / sit · stand · F gesture · ESC menu'],
   standHint: ['E: 일어나기', 'E: stand up'],
   wp_Printer: ['프린터', 'Printer'],
+  wpHere: ['▶ 117 · 여기 ◀', '▶ 117 · HERE ◀'],
   wp_CctvMonitor: ['관리자실 CCTV', 'Manager CCTV'],
   wp_Projector: ['회의실 프로젝터', 'Projector'],
   wp_Phone: ['관리자실 전화', 'Phone'],

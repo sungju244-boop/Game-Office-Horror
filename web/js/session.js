@@ -118,7 +118,62 @@ export class Session {
     this.startAmbient();
     this.applyChicken(settings.chicken);
     this.applyMood();
+    this.buildGuide();
     this.warm();
+  }
+
+  // ---------- 처음 자리 안내: 바닥 화살표 + 117 모니터 깜빡임 (처음 앉으면 사라진다) ----------
+  buildGuide() {
+    this.guide = null; this.idleBlink = !this.vars.get('sat_once');
+    if (!this.idleBlink) return;
+    const reg = this.reg, sp = reg.spawn, sv = this.seatView;
+    // 문은 지나갈 수 있는 것으로 보고 길을 찾는다 (처음엔 입구 문이 닫혀 있다). 추격용 격자와는 따로 쓴다
+    const doors = reg.grid.doors; reg.grid.doors = [];
+    let nav; try { nav = new NavGrid(reg.grid, 0.25, 0.3); } finally { reg.grid.doors = doors; }
+    const tz = sv.pos.clone().addScaledVector(sv.n.clone().setY(0).normalize(), 0.35); // 의자 바로 뒤 바닥
+    const path = nav.path(sp.x, sp.z, tz.x, -tz.z);
+    if (!path || path.length < 2) return;
+    // 경로를 따라 약 1.1m 간격으로 점 고르기 (배치 좌표 → three: z 반대)
+    const pts = [new THREE.Vector3(sp.x, 0, -sp.z), ...path.map(([x, z]) => new THREE.Vector3(x, 0, -z))];
+    const marks = []; let acc = 0.6;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], len = a.distanceTo(b);
+      while (acc <= len) { const q = a.clone().lerp(b, acc / len); marks.push({ q, dir: Math.atan2(b.x - a.x, b.z - a.z) }); acc += 1.1; }
+      acc -= len;
+    }
+    if (marks.length > 1) marks.pop(); // 의자 밑에는 두지 않는다
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = '#7ff5d8'; g.beginPath(); g.moveTo(64, 10); g.lineTo(116, 70); g.lineTo(84, 70); g.lineTo(84, 118); g.lineTo(44, 118); g.lineTo(44, 70); g.lineTo(12, 70); g.closePath(); g.fill();
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; this.mats.made.push(tex);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const geo = new THREE.PlaneGeometry(0.42, 0.42);
+    const grp = new THREE.Group(); grp.name = 'GuideArrows'; grp.userData.dynamic = true;
+    const items = marks.map((m, i) => {
+      const mesh = new THREE.Mesh(geo, mat.clone()); // 화살표마다 밝기가 달라야 해서 재질만 복제 (셰이더는 같다)
+      // 바닥에 눕히고(x) 진행 방향으로 돌린다(y). 텍스처의 화살표 끝 = 평면의 +y = 눕히면 -z
+      mesh.position.set(m.q.x, 0.012, m.q.z); mesh.rotation.set(-Math.PI / 2, m.dir + Math.PI, 0, 'YXZ');
+      grp.add(mesh); return { mesh, i };
+    });
+    this.scene.add(grp);
+    this.guide = { grp, items, fade: 1, n: items.length };
+  }
+  updateGuide(dt) {
+    const gd = this.guide;
+    if (gd) {
+      if (this.vars.get('sat_once')) gd.fade = Math.max(0, gd.fade - dt * 2);
+      if (gd.fade <= 0) { gd.grp.visible = false; this.guide = null; }
+      else for (const { mesh, i } of gd.items) { const w = 0.5 + 0.5 * Math.sin(this.elapsed * 3.2 - i * 0.7); mesh.material.opacity = (0.22 + 0.4 * w) * gd.fade; }
+    }
+    // 117 모니터: 대기 화면이면 큰 글씨가 '▶ 117 · 여기 ◀' 와 번갈아 깜빡인다
+    if (this.idleBlink) {
+      const c = this.term.center, idle = t('termIdle');
+      if (this.vars.get('sat_once') || !c || c[1] !== idle) { this.idleBlink = false; if (c && c[1] === idle) this.term.showCenter(t('termTitle'), idle); }
+      else {
+        const on = Math.floor(this.elapsed / 0.8) % 2 === 1, want = on ? t('wpHere') : t('termTitle');
+        if (c[0] !== want) this.term.showCenter(want, idle);
+      }
+    }
   }
 
   dispose() {
@@ -1395,6 +1450,7 @@ export class Session {
     for (let i = this.waiters.length - 1; i >= 0; i--) { const w = this.waiters[i]; if (w.pred()) { this.waiters.splice(i, 1); w.r(); } }
     const reg = this.reg;
     this.updateLights(dt);
+    this.updateGuide(dt);
     let shadow = false;
     for (const d of reg.doors.values()) { if (d.busy) shadow = true; d.update(dt); }
     if (this.rattle) {
