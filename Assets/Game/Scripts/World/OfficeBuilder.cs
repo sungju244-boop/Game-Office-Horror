@@ -33,6 +33,9 @@ namespace NightEval.World
             foreach (object o in MiniJson.List(L, "holes")) BuildHole(o as List<object>, cables, pf, ctx);
             foreach (object o in MiniJson.List(L, "cables")) BuildCable(o as Dictionary<string, object>, cables, pf);
             BuildOutside(MiniJson.Obj(L, "backdrop"), root.transform, pf, ctx);
+            // 천장 구멍·케이블·등기구는 위에서 보는 추격 화면에서 끌 수 있게 천장 레이어로
+            foreach (var t in cables.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layers.Ceiling;
+            foreach (var t in lights.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = Layers.Ceiling;
             Batch(new[] { structure, props, lights, cables });
 
             reg.Avatar = pf.Avatar(root.transform);
@@ -54,6 +57,7 @@ namespace NightEval.World
                         if (r.GetComponentInParent<Door>() != null) continue;
                         if (r.GetComponentInParent<CctvCamera>() != null) continue;
                         if (r.GetComponentInParent<WallClock>() != null) continue;
+                        if (r.GetComponentInParent<FallCabinet>() != null) continue;
                         list.Add(r.gameObject);
                     }
                     if (list.Count > 1) StaticBatchingUtility.Combine(list.ToArray(), root.gameObject);
@@ -65,6 +69,7 @@ namespace NightEval.World
             }
         }
 
+        static float CeilingH = 2.6f; // 사무실 천장 높이 (구멍·케이블 위치)
         static Vector3 XZ(float[] a, float y = 0f) => a.Length >= 2 ? new Vector3(a[0], y, a[1]) : Vector3.zero;
         static Vector3 XYZ(float[] a) => a.Length >= 3 ? new Vector3(a[0], a[1], a[2]) : Vector3.zero;
 
@@ -117,7 +122,9 @@ namespace NightEval.World
             var floor = pf.Box(parent, "Floor_" + id, new Vector3(w, 0.1f, dep), c + Vector3.down * 0.05f, MiniJson.Str(d, "mat", "carpet"), default, 1f, true);
             floor.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             // 천장은 벽 위를 덮도록 조금 넓고 두껍게 (달빛이 틈으로 새지 않게)
-            pf.Box(parent, "Ceiling_" + id, new Vector3(w + 0.4f, 0.12f, dep + 0.4f), c + Vector3.up * (h + 0.06f), MiniJson.Str(d, "ceilMat", "ceiling"), default, 1f, true);
+            var ceil = pf.Box(parent, "Ceiling_" + id, new Vector3(w + 0.4f, 0.12f, dep + 0.4f), c + Vector3.up * (h + 0.06f), MiniJson.Str(d, "ceilMat", "ceiling"), default, 1f, true);
+            ceil.layer = Layers.Ceiling;
+            if (id == "office") CeilingH = h;
         }
 
         // ---------- 벽 ----------
@@ -333,6 +340,16 @@ namespace NightEval.World
                 }
                 case "cabinet":
                 {
+                    if (MiniJson.Bool(d, "fall"))
+                    {
+                        // 추격 중 쓰러지는 캐비닛: 앞쪽(-z) 아래 모서리를 축으로 넘어진다
+                        var pivot = pf.Node(parent, id + "_Pivot", pos + Quaternion.Euler(0, rot, 0) * new Vector3(0, 0, -0.31f), rot);
+                        var cab = pf.Cabinet(pivot.transform, id, new Vector3(0, 0, 0.31f), 0f);
+                        var fc = pivot.AddComponent<FallCabinet>();
+                        fc.Center = pos; fc.Yaw = rot;
+                        reg.FallCabs.Add(fc);
+                        break;
+                    }
                     var c = pf.Cabinet(parent, id, pos, rot);
                     if (id.Length > 0) reg.AddInteractable(id, c.AddComponent<Interactable>());
                     break;
@@ -607,7 +624,7 @@ namespace NightEval.World
         {
             if (p == null || p.Count < 2) return;
             float x = (float)(double)p[0], z = (float)(double)p[1];
-            pf.Quad(parent, "CeilingHole", new Vector2(0.6f, 0.6f), new Vector3(x, 2.596f, z), new Vector3(-90f, 0, 0), ctx.Mats.Get("hole"));
+            pf.Quad(parent, "CeilingHole", new Vector2(0.6f, 0.6f), new Vector3(x, CeilingH - 0.004f, z), new Vector3(-90f, 0, 0), ctx.Mats.Get("hole"));
         }
 
         static void BuildCable(Dictionary<string, object> d, Transform parent, PropFactory pf)
@@ -615,7 +632,7 @@ namespace NightEval.World
             if (d == null) return;
             if (MiniJson.Has(d, "hang"))
             {
-                Vector3 top = XZ(MiniJson.Floats(d, "hang"), 2.6f);
+                Vector3 top = XZ(MiniJson.Floats(d, "hang"), CeilingH);
                 float len = MiniJson.Num(d, "len", 0.8f);
                 var pts = new List<Vector3>();
                 int n = 10;

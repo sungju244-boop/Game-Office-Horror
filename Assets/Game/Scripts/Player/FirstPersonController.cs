@@ -14,6 +14,8 @@ namespace NightEval.Player
         public float WalkSpeed = 2.3f;
         public float SprintSpeed = 4.9f;
         public bool MoveEnabled;
+        public bool AnyDirSprint;            // 위에서 보는 추격 화면: 어느 방향으로든 달린다
+        public float SpeedMul = 1f;          // 캐비닛에 깔려 비틀거릴 때 느려진다
         public bool LookEnabled;
         public System.Func<float> Sensitivity = () => 2f;
         public System.Action<bool> OnStep; // true = 타일 바닥
@@ -98,8 +100,8 @@ namespace NightEval.Player
                 if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) x -= 1f;
                 var input = new Vector3(x, 0f, z);
                 if (input.sqrMagnitude > 1f) input.Normalize();
-                IsSprinting = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && z > 0.1f;
-                float speed = IsSprinting ? SprintSpeed : WalkSpeed;
+                IsSprinting = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && (z > 0.1f || (AnyDirSprint && input.sqrMagnitude > 0.01f));
+                float speed = (IsSprinting ? SprintSpeed : WalkSpeed) * SpeedMul;
                 move = transform.TransformDirection(input) * speed;
             }
 

@@ -331,6 +331,15 @@ namespace NightEval.Director
             }
         }
 
+        /// <summary>CCTV 화면을 camId 카메라로 켜고 화면 렌더텍스처를 돌려준다 (추격 시작 때 서버실 CAM3)</summary>
+        public RenderTexture EnsureFeed(string camId)
+        {
+            var a = new StoryAction { Type = "cctv" };
+            a.Args["target"] = camId; a.Args["feed"] = true;
+            Cctv(a);
+            return cctvRT;
+        }
+
         IEnumerator Monitors(StoryAction a)
         {
             string mode = a.Str("mode", "117");

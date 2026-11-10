@@ -343,6 +343,21 @@ namespace NightEval.Terminal
             mazeTex.SetPixels32(mazePx); mazeTex.Apply(false);
         }
 
+        // ---------- CCTV 화면을 단말기에 띄운다 (추격 시작) ----------
+        RawImage feedImg;
+        public void ShowFeed(Texture tex)
+        {
+            var root = (RectTransform)hdrLeft.transform.parent;
+            if (feedImg == null)
+            {
+                var rt = UIKit.Rect(root, "Feed", Vector2.zero, Vector2.one, new Vector2(64, 120), new Vector2(-64, -90));
+                feedImg = rt.gameObject.AddComponent<RawImage>(); feedImg.raycastTarget = false;
+                PropFactory.SetLayer(root.gameObject, Layers.Terminal);
+            }
+            feedImg.texture = tex; feedImg.transform.SetAsLastSibling(); feedImg.enabled = true;
+        }
+        public void HideFeed() { if (feedImg != null) feedImg.enabled = false; }
+
         // ---------- 가짜 블루스크린 (엔딩 3) ----------
         GameObject bsod;
         public void ShowBsod(IList<string> lines)

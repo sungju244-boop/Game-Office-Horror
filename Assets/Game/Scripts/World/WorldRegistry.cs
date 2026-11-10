@@ -6,6 +6,15 @@ namespace NightEval.World
     /// <summary>
     /// 만들어진 공간에서 이야기 이벤트가 이름으로 찾을 대상들 (문, 조명 묶음, 확인 지점, 소리 위치 등).
     /// </summary>
+    /// <summary>추격 중 가까이 가면 쓰러지는 캐비닛 (0 = 서 있음, 1 = 넘어지는 중, 2 = 쓰러짐)</summary>
+    public sealed class FallCabinet : MonoBehaviour
+    {
+        public Vector3 Center;
+        public float Yaw;
+        public int State;
+        public float T;
+    }
+
     public sealed class WorldRegistry
     {
         public Transform Root;
@@ -36,7 +45,8 @@ namespace NightEval.World
 
         public MonitorScreen CctvMonitor;
         public GameObject ProjectorBeam;
-        public GameObject VoidFloor;          // 엔딩 4 공허 바닥      // 회의실 프로젝터 빛 (켜짐/꺼짐)
+        public GameObject VoidFloor;
+        public readonly List<FallCabinet> FallCabs = new List<FallCabinet>();          // 엔딩 4 공허 바닥      // 회의실 프로젝터 빛 (켜짐/꺼짐)
         public float Fog = 0.062f;            // 배치 데이터의 기본 안개
         public Vector3 SupSpawn, ExitPoint, VoidPoint;
         public CctvCamera Cctv;

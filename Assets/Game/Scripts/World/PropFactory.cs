@@ -7,6 +7,7 @@ namespace NightEval.World
     {
         public const int Default = 0;
         public const int IgnoreRaycast = 2;
+        public const int Ceiling = 28;    // 천장(판·등기구·구멍·케이블): 위에서 내려다보는 추격 화면에서만 끈다
         public const int Avatar = 30;     // CCTV에만 보이는 플레이어 몸
         public const int Terminal = 31;   // 단말기 화면 UI (렌더텍스처 전용)
 

@@ -78,6 +78,35 @@ namespace NightEval.UI
             countdownText.text = n > 0 ? "깜짝 주의  " + n : "";
         }
 
+        // ---------- 위에서 내려다보는 CCTV 화면 덧씌움 (REC · 카메라 · 시각 · 비상구 표시) ----------
+        RectTransform cctvRoot, exitMark; Text cctvText;
+        public void CctvOverlay(bool on)
+        {
+            if (cctvRoot == null)
+            {
+                var canvas = UIKit.OverlayCanvas(transform, "CctvHud", 11);
+                cctvRoot = (RectTransform)canvas.transform;
+                cctvText = UIKit.Label(UIKit.Fixed(cctvRoot, "Rec", new Vector2(0, 0), new Vector2(0, 0), new Vector2(40, 40), new Vector2(900, 50)), "", Res.Bold, 30, new Color(1f, 0.85f, 0.85f), TextAnchor.LowerLeft);
+                AddShadow(cctvText);
+                exitMark = UIKit.Fixed(cctvRoot, "Exit", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(110, 40));
+                UIKit.Panel(exitMark, new Color(0.3f, 1f, 0.45f, 0.9f));
+                UIKit.Label(UIKit.Rect(exitMark, "T", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero), "EXIT", Res.Bold, 26, new Color(0.02f, 0.15f, 0.05f), TextAnchor.MiddleCenter);
+            }
+            cctvRoot.gameObject.SetActive(on);
+        }
+        public void CctvOverlayUpdate(string clock, Vector3? exitViewport)
+        {
+            if (cctvRoot == null || !cctvRoot.gameObject.activeSelf) return;
+            cctvText.text = (Mathf.FloorToInt(Time.time * 2f) % 2 == 0 ? "<color=#ff4a4a>●</color> " : "   ") + "REC  CAM 04 · 4F  " + clock;
+            bool vis = exitViewport.HasValue && exitViewport.Value.z > 0f;
+            exitMark.gameObject.SetActive(vis);
+            if (vis)
+            {
+                var v = exitViewport.Value; var sz = cctvRoot.rect.size;
+                exitMark.anchoredPosition = new Vector2(Mathf.Clamp(v.x - 0.5f, -0.46f, 0.46f) * sz.x, Mathf.Clamp(v.y - 0.5f, -0.46f, 0.46f) * sz.y);
+            }
+        }
+
         public void HideJumpscare() { jsT = 0f; if (jsRoot != null) jsRoot.gameObject.SetActive(false); }
 
         void UpdateJumpscare()
