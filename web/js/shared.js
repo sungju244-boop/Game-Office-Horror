@@ -46,7 +46,7 @@ export const saves = {
 // ---------- 전역 ----------
 export const app = {
   renderer: null, camera: null, rt: null, postMat: null, postScene: null, postCam: null,
-  rawStory: null, dictEn: null, story: null, layoutJson: null, textures: new Map(), images: new Map(), audio: new AudioSys(), session: null,
+  rawStory: null, dictEn: null, story: null, layoutJson: null, textures: new Map(), images: new Map(), models: new Map(), audio: new AudioSys(), session: null,
   phase: 'loading', paused: false, frozen: false, chaseSnapshot: null, clock: new THREE.Clock(), time: 0, locked: false, maxDt: 0.05, fps: 0, noAdapt: false,
   flow: {}, // game.js 가 채운다: triggerEnding, finishEnding, toTitle …
 };

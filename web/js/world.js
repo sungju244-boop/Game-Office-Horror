@@ -1,5 +1,6 @@
 // office_layout.json → three.js 사무실 (Unity 판 OfficeBuilder / PropFactory 와 같은 배치·치수).
 import { THREE, D, place, boxGeo, frustumGeo, sag, tubeGeo, crtMaterial } from './kit.js';
+import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
 
 // ---------- 상호작용 대상 ----------
 export class Interactable {
@@ -1229,6 +1230,138 @@ export function animUncle(u, dt, time) {
   }
   P.head.rotation.z = Math.sin(ph) * 0.12;
   P.head.rotation.x = -0.05 + Math.abs(beat) * 0.08;
+}
+
+// ---------- CC0 휴머노이드 모델 (Polygonal Mind "100 Avatars", VRM 0.x → GLB) ----------
+// 뼈의 처음 자세는 회전 없는 T자다. 앞 = -z, 왼쪽 = -x (지금 형체들과 같은 방향).
+// 각도는 부모 축 기준이고 z → y → x 순서로 적용된다: 팔은 z 로 내리고 x 로 앞뒤로 흔든다.
+const RIG_MAT = new Map();
+/** 원본 재질 → 같은 텍스처의 램버트 재질 (조명·셰이더 수 고정, 판이 바뀌어도 다시 만들지 않는다) */
+function rigMaterial(src, emissive) {
+  const key = src.uuid + ':' + emissive;
+  let m = RIG_MAT.get(key);
+  if (!m) {
+    m = new THREE.MeshLambertMaterial({ map: src.map || null, side: src.side, transparent: src.transparent, alphaTest: src.alphaTest });
+    if (src.color) m.color.copy(src.color);
+    // 어둠 속에서도 무늬가 희미하게 보이도록 텍스처를 약하게 스스로 빛나게 한다
+    if (emissive > 0 && src.map) { m.emissive.setScalar(emissive); m.emissiveMap = src.map; }
+    m.userData.shared = true;
+    RIG_MAT.set(key, m);
+  }
+  return m;
+}
+const RIG_PARTS = ['hips', 'spine', 'chest', 'upperChest', 'neck', 'head', 'leftUpperArm', 'rightUpperArm', 'leftLowerArm', 'rightLowerArm',
+  'leftHand', 'rightHand', 'leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot'];
+const SIDES = [['left', 0, 1], ['right', Math.PI, -1]]; // [이름, 걸음 위상, 팔 내리는 방향]
+
+/** asset = { scene, bones: { hips: '노드 이름', … } }. 키를 height(m)로 맞춘다 */
+export function buildRig(asset, parent, { height = 1.8, emissive = 0, name = 'Rig' } = {}) {
+  const root = new THREE.Group(); root.name = name; root.userData.dynamic = true; parent.add(root);
+  const model = cloneSkinned(asset.scene);
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material = Array.isArray(o.material) ? o.material.map((m) => rigMaterial(m, emissive)) : rigMaterial(o.material, emissive);
+    o.castShadow = false; o.receiveShadow = false; // 피부 셰이더(그림자용)가 등장 순간에 새로 생기지 않게
+  });
+  root.add(model);
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model);
+  const s = height / Math.max(0.1, box.max.y - box.min.y);
+  model.scale.setScalar(s);
+  model.position.y = -box.min.y * s;
+  const byName = new Map();
+  model.traverse((o) => { if (!byName.has(o.name)) byName.set(o.name, o); });
+  const B = {};
+  for (const [k, n] of Object.entries(asset.bones)) { const o = byName.get(THREE.PropertyBinding.sanitizeNodeName(n)); if (o) B[k] = o; }
+  const rest = {}; for (const k in B) rest[k] = B[k].position.clone();
+  const f = { rig: true, root, model, B, rest, scale: s, phase: Math.random() * 6, jitter: 0, jitterT: 0, headZ: 0, P: { head: B.head || root } };
+  animRigWalk(f, 0, 0, 0);
+  root.position.set(0, -60, 0);
+  return f;
+}
+function rigReset(f) {
+  for (const k of RIG_PARTS) { const b = f.B[k]; if (b) b.rotation.set(0, 0, 0); }
+  if (f.B.hips) f.B.hips.position.copy(f.rest.hips);
+}
+function rot(f, k, x, y, z) { const b = f.B[k]; if (b) b.rotation.set(x, y, z); }
+
+/** 걷기·달리기 (speed m/s). style: down(팔 내린 각) · reach(쫓을 때 팔을 앞으로) · tilt(고개 기울기). 발 디딜 때 true */
+export function animRigWalk(f, dt, time, speed, style = {}) {
+  rigReset(f);
+  const moving = speed > 0.15;
+  const prev = Math.sin(f.phase);
+  f.phase += dt * (moving ? 2.4 + speed * 1.55 : 0.9);
+  const ph = f.phase, s0 = Math.sin(ph);
+  const k = Math.min(1, speed / 4);
+  const swing = moving ? 0.38 + 0.3 * k : 0, knee = moving ? 0.55 + 0.55 * k : 0;
+  const down = style.down ?? 1.25;
+  const reach = style.reach ? Math.min(1, speed / 2.2) : 0;
+  for (const [side, off, sg] of SIDES) {
+    const a = ph + off;
+    rot(f, side + 'UpperLeg', Math.sin(a) * swing, 0, 0);
+    rot(f, side + 'LowerLeg', -Math.max(0, Math.cos(a)) * knee - (moving ? 0.08 : 0.03), 0, 0);
+    const armSwing = moving ? -Math.sin(a) * (0.3 + 0.25 * k) * (1 - reach) : Math.sin(time * 0.8 + off) * 0.03;
+    // 앞으로 뻗기: 팔을 거의 끝까지 내린 다음(z) 앞으로 든다(x). 덜 내리면 옆으로 벌어진다
+    const fwd = reach * (1.28 + Math.sin(time * 6.5 + off) * 0.1);
+    rot(f, side + 'UpperArm', armSwing + fwd, 0, sg * (down + reach * (Math.PI / 2 - 0.12 - down)));
+    rot(f, side + 'LowerArm', 0, -sg * (0.22 + reach * 0.15 + (style.elbow || 0)), 0);
+  }
+  if (f.B.hips) f.B.hips.position.y = f.rest.hips.y + (moving ? Math.abs(s0) * 0.035 : Math.sin(time * 1.4) * 0.006);
+  rot(f, 'hips', 0, moving ? Math.sin(ph) * 0.1 : 0, moving ? s0 * 0.04 : 0);
+  rot(f, 'spine', -(moving ? 0.06 + 0.12 * k : 0.03) - (style.hunch || 0), moving ? -Math.sin(ph) * 0.1 : 0, 0);
+  // 고개가 불규칙하게 홱 꺾인다
+  f.jitterT -= dt;
+  if (f.jitterT <= 0) { f.jitterT = 0.08 + Math.random() * (moving ? 0.4 : 0.9); f.jitter = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 0.55 : 0.16); }
+  f.headZ += (f.jitter - f.headZ) * Math.min(1, dt * 26);
+  rot(f, 'neck', -0.05, 0, f.headZ * 0.4);
+  rot(f, 'head', -0.1 + (style.tiltX || 0), 0, f.headZ * 0.6 + (style.tilt || 0));
+  return moving && s0 !== 0 && Math.sign(prev) !== Math.sign(s0);
+}
+
+/** 그것: 팔을 길게 늘어뜨리고 고개를 꺾은 채 서 있다 (움직일 때는 느리게) */
+export function animRigCreep(f, dt, time, speed) {
+  animRigWalk(f, dt, time, speed, { down: 1.42, tilt: 0.42, tiltX: 0.05, hunch: 0.12, elbow: 0.1 });
+  rot(f, 'chest', -0.1, Math.sin(time * 0.37) * 0.06, Math.sin(time * 0.5) * 0.03);
+  if (f.eyeMat) f.eyeMat.opacity = 0.75 + 0.25 * Math.sin(time * 3.1);
+}
+
+/** 겁쟁이 모드: 옆으로 빠지는 보법 + 팔을 활짝 벌리는 춤 (예전 아저씨 춤과 같은 박자) */
+export function animRigDance(f, dt, time) {
+  rigReset(f);
+  f.phase += dt * 4.2;
+  const ph = f.phase, beat = Math.sin(ph), half = Math.sin(ph * 0.5);
+  const hp = f.B.hips, u = f.rest.hips ? f.rest.hips.y / 0.92 : 1; // 몸 크기 비율
+  if (hp) { hp.position.x = f.rest.hips.x + half * 0.16 * u; hp.position.y = f.rest.hips.y - Math.abs(beat) * 0.06 * u; }
+  rot(f, 'hips', 0, 0, half * 0.08);
+  rot(f, 'spine', 0, Math.sin(ph * 0.5 + 0.6) * 0.25, -half * 0.12);
+  for (const [side, s] of [['left', -1], ['right', 1]]) {
+    rot(f, side + 'UpperLeg', Math.max(0, Math.sin(ph + (s > 0 ? 0 : Math.PI))) * 0.25, 0, (half * s > 0 ? 0.35 : 0.05) * s);
+    const open = 1.25 + Math.sin(ph + s) * 0.25; // 아래로 늘어뜨린 상태에서 벌린 각
+    rot(f, side + 'UpperArm', Math.sin(ph * 0.5 + s) * 0.3, 0, -s * (Math.PI / 2 - open));
+    rot(f, side + 'LowerArm', 0, 0, s * (0.35 + Math.sin(ph * 2 + s) * 0.25));
+  }
+  rot(f, 'head', -0.05 + Math.abs(beat) * 0.08, 0, Math.sin(ph) * 0.12);
+}
+
+/** 그것 모델에 빛나는 눈을 붙인다 (머리 → 가슴 순서로 늘어난다). 좌표는 모델 원래 단위(m) */
+export function addRigEyes(f) {
+  const eyeMat = new THREE.MeshBasicMaterial({ map: eyeTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  const head = f.B.head || f.root, chest = f.B.upperChest || f.B.chest || f.B.spine || f.root;
+  const spots = [
+    [head, -0.036, 0.1, -0.118], [head, 0.036, 0.1, -0.118],
+    [head, 0.0, 0.17, -0.105], [head, -0.065, 0.05, -0.1], [head, 0.07, 0.15, -0.095], [head, 0.02, 0.01, -0.11],
+    [chest, -0.06, 0.06, -0.125], [chest, 0.08, 0.0, -0.125], [chest, -0.11, -0.08, -0.115], [chest, 0.03, -0.15, -0.125],
+    [chest, 0.12, 0.08, -0.105], [chest, -0.02, -0.04, -0.13], [chest, 0.07, -0.26, -0.115], [chest, -0.09, -0.3, -0.11],
+  ];
+  const eyes = spots.map(([par, x, y, z], i) => {
+    const sz = i < 2 ? 0.045 : 0.034;
+    const e = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), eyeMat);
+    e.position.set(x, y, z); e.rotation.y = Math.PI; e.visible = false; par.add(e); return e;
+  });
+  f.eyes = eyes; f.eyeMat = eyeMat; f.n = 2;
+  f.setEyes = (n) => { f.n = n; eyes.forEach((e, i) => { e.visible = i < n; }); };
+  f.setEyes(2);
+  return f;
 }
 
 // ---------- 추격용 길찾기 (거친 격자 BFS + 시야 잇기) ----------

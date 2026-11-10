@@ -10,7 +10,7 @@ rm -rf dist && mkdir -p dist
   cat index.html
   printf '\n</html>\n'
 } > dist/index.html
-cp -r js vendor data tex audio fonts dist/
+cp -r js vendor data tex audio fonts models dist/
 # Netlify: 빌드 없이 이 폴더 그대로 공개
 cat > dist/netlify.toml <<'TOML'
 [build]

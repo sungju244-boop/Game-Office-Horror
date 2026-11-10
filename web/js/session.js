@@ -2,7 +2,8 @@
 // 처음부터 다시 = 통째로 새로 만든다 (dispose 후 new Session).
 import { THREE, D, mergeStatic, disposeTree, crtMaterial } from './kit.js';
 import { Vars, cond } from './story.js';
-import { buildWorld, MatLib, buildMonster, buildEntity, animEntity, buildHand, poseHand, buildUncle, animUncle, NavGrid } from './world.js';
+import { buildWorld, MatLib, buildMonster, buildEntity, animEntity, buildHand, poseHand, buildUncle, animUncle, NavGrid,
+  buildRig, animRigWalk, animRigCreep, animRigDance, addRigEyes } from './world.js';
 import { Terminal, TERM_W, TERM_H } from './terminal.js';
 import { Maze, MAZES } from './maze.js';
 import {
@@ -73,9 +74,11 @@ export class Session {
     scene.traverse((o) => { if (o.isLight && o.shadow) o.shadow.camera.layers.enable(3); });
     // 등장하는 것들은 처음부터 만들어 바닥 아래에 둔다 → 조명·셰이더 수가 고정되어 등장 순간에 렉이 없다
     this.faceTex = this.mats.tex('screen_face', 0, false);
-    this.monster = buildMonster(this.mats, scene, this.faceTex);
-    this.entity = buildEntity(this.mats, scene);
-    this.uncle = buildUncle(this.mats, scene);
+    // 형체: CC0 모델(감독관 = Observer, 그것 = DisturbingEyes, 겁쟁이 모드 = 휴지). 모델을 못 불러오면 예전 형체를 쓴다
+    const M = app.models;
+    this.monster = M.get('sup') ? buildRig(M.get('sup'), scene, { height: 2.1, emissive: 0.22, name: 'Supervisor' }) : buildMonster(this.mats, scene, this.faceTex);
+    this.entity = M.get('ent') ? addRigEyes(buildRig(M.get('ent'), scene, { height: 2.05, emissive: 0.3, name: 'Entity' })) : buildEntity(this.mats, scene);
+    this.uncle = M.get('tp') ? buildRig(M.get('tp'), scene, { height: 1.35, emissive: 0.08, name: 'ToiletPaper' }) : buildUncle(this.mats, scene);
     this.hand = buildHand(this.mats, scene);
     this.monLight = new THREE.PointLight(0xa8c4ff, 0, 6, 1.6);
     scene.add(this.monLight);
@@ -456,12 +459,12 @@ export class Session {
     const o = f.obj;
     o.root.position.copy(f.pos); o.root.rotation.y = f.yaw;
     if (o === this.monster) {
-      const stepped = animMonster(o, dt, f.speed);
+      const stepped = o.rig ? animRigWalk(o, dt, app.time, f.speed, { reach: true, tiltX: -0.05 }) : animMonster(o, dt, f.speed);
       if (f.layer === 0) { this.monLight.position.set(f.pos.x - Math.sin(f.yaw) * 0.5, 1.9, f.pos.z - Math.cos(f.yaw) * 0.5); this.monLight.intensity = f.glow * (this.chicken ? 0 : 1); }
       return stepped;
     }
-    if (o === this.entity) animEntity(o, dt, app.time, f.speed);
-    else animUncle(o, dt, app.time);
+    if (o === this.entity) (o.rig ? animRigCreep : animEntity)(o, dt, app.time, f.speed);
+    else (o.rig ? animRigDance : animUncle)(o, dt, app.time);
     return false;
   }
 

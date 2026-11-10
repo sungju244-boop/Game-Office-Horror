@@ -2,6 +2,7 @@
 import { THREE, D, postMaterial, crtCurve } from './kit.js';
 import { parseJsonc, localize, Vars, Story } from './story.js';
 import { Session } from './session.js';
+import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { TERM_W, TERM_H } from './terminal.js';
 import { t, setLang, getLang, applyDom } from './i18n.js';
 import {
@@ -38,6 +39,8 @@ async function boot() {
     await Promise.all(TEX.map((n) => new Promise((res) => loader.load(`tex/${n}.png`, (tx) => { app.textures.set(n, tx); res(); }, undefined, () => { console.warn('텍스처 실패', n); res(); }))));
     await Promise.all(IMAGES.map((n) => new Promise((res) => { const im = new Image(); im.onload = () => { app.images.set(n, im); res(); }; im.onerror = () => res(); im.src = `tex/${n}.png`; })));
     await Promise.all([...document.querySelectorAll('#jumpscare img')].map((im) => (im.decode ? im.decode().catch(() => {}) : null)));
+    progress(0.24);
+    await loadModels();
     progress(0.3);
     await app.audio.load('audio', (p) => progress(0.3 + p * 0.65));
     try { app.audio.makePanner(1, 1, true); } catch (e) { /* 입체 음향(HRTF) 미리 준비 */ }
@@ -52,6 +55,18 @@ async function boot() {
     console.error(e);
     $('loadmsg').textContent = t('loadFail') + e.message;
   }
+}
+
+/** CC0 형체 모델 (web/models: Tools/prep_models.sh 로 만든 GLB + 뼈 이름표). 실패하면 예전 형체를 쓴다 */
+async function loadModels() {
+  app.models = new Map();
+  const gl = new GLTFLoader();
+  await Promise.all(['ent', 'sup', 'tp'].map(async (k) => {
+    try {
+      const [g, bones] = await Promise.all([gl.loadAsync(`models/${k}.glb`), fetch(`models/${k}.bones.json`).then((r) => r.json())]);
+      app.models.set(k, { scene: g.scene, bones });
+    } catch (e) { console.warn('모델 로드 실패 (예전 형체로 대신함)', k, e); }
+  }));
 }
 
 function makeStory() { app.story = new Story(getLang() === 'en' ? localize(app.rawStory, app.dictEn) : app.rawStory); }
