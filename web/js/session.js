@@ -577,7 +577,7 @@ export class Session {
     if (!spot) return;
     this.showFig('ent', spot.pos, spot.yaw);
     this.term.glitchFx(0.6, 0.15);
-    if (this.chicken) { app.audio.play2D('uncle_hum', 0.35); await this.sleep(1.0); }
+    if (this.chicken) { this.tpVoice(0.5); await this.sleep(1.0); }
     else { app.audio.play2D('sfx_static_2', 0.35); await this.sleep(0.14); }
     this.hideFig('ent');
   }
@@ -592,7 +592,7 @@ export class Session {
     if (this.chicken) {
       const pos = sv.sp.clone().addScaledVector(right, -0.75).addScaledVector(n, -0.9);
       this.showFig('ent', pos, Math.atan2(n.x, n.z));
-      A.play2D('uncle_shansenbu', 0.45);
+      this.tpVoice(0.6);
       this.leanTarget = 1; await this.sleep(2.0); this.leanTarget = 0;
       this.hideFig('ent'); return;
     }
@@ -673,7 +673,7 @@ export class Session {
       await this.sleep(0.05);
     }
     if (this.reg.cctvMonitor?.live) this.reg.cctvMonitor.live.uniforms.glitch.value = 0.9;
-    app.audio.play2D(this.chicken ? 'uncle_hum' : 'sfx_static_3', 0.5);
+    if (this.chicken) this.tpVoice(0.5); else app.audio.play2D('sfx_static_3', 0.5);
     await this.sleep(0.2);
     this.hideFig('sup');
   }
@@ -694,7 +694,7 @@ export class Session {
     this.eyeField.visible = true; pair.visible = true;
     pair.position.set(best.x + 0.25, best.y + 0.12, best.z - 0.12); pair.rotation.set(0, 0, 0);
     pair.scale.setScalar(this.chicken ? 0.01 : 1.4);
-    if (this.chicken) { this.showFig('ent', new THREE.Vector3(best.x, 0, best.z + 0.6), 0); app.audio.play2D('uncle_hum', 0.4); }
+    if (this.chicken) { this.showFig('ent', new THREE.Vector3(best.x, 0, best.z + 0.6), 0); this.tpVoice(0.5); }
     else { app.audio.playAt('sfx_whisper', best, 0.45, 10); app.audio.play2D('js_stinger', 0.35); }
     await this.sleep(1.6);
     pair.visible = false; this.eyeField.visible = false; this.hideFig('ent');
@@ -711,7 +711,7 @@ export class Session {
     const x = Math.min(11.2, Math.max(6.4, p.pos.x + 0.6)), z = 6.3; // three z (= 배치 z -6.3)
     const pos = new THREE.Vector3(x, 0, z);
     this.showFig('sup', pos, Math.atan2(-(p.pos.x - x), -(p.pos.z - z)), { glow: 0.7 });
-    app.audio.play2D(this.chicken ? 'uncle_hum' : 'sfx_static_1', 0.35);
+    if (this.chicken) this.tpVoice(0.5); else app.audio.play2D('sfx_static_1', 0.35);
     await this.sleep(1.3);
     this.flickerT = 0.5;
     await this.sleep(0.25);
@@ -757,13 +757,16 @@ export class Session {
     this.p.move = false;
     app.audio.play2D('sfx_click', 0.5);
     await this.sleep(0.6);
-    const s = app.audio.play2D(this.chicken ? 'uncle_hum' : 'sfx_keyboard_far', 0.7);
+    const s = app.audio.play2D(this.chicken ? 'tp_ac' : 'sfx_keyboard_far', 0.7);
     monologue([t('phone1'), t('phone2')]);
     await this.sleep(4.5);
     try { s?.stop(); } catch (e) { /* */ }
     app.audio.play2D('sfx_click', 0.5);
     if (app.phase === 'play' && !this.cineLock && !this.seat.seated) this.p.move = true;
   }
+
+  /** 겁쟁이 모드 목소리: 영상 속 "샨쎈부"(A)와 "랑쓰티치오우"(C)를 부를 때마다 번갈아 낸다 */
+  tpVoice(vol = 0.5) { this.tpN = (this.tpN || 0) + 1; return app.audio.play2D(this.tpN % 2 ? 'tp_a' : 'tp_c', vol); }
 
   /** 길 안내 목표. delay 초 동안 못 찾으면 화면에 방향과 거리를 보여 준다 */
   setWaypoint(id, label, delay = 0) { this.wp = id ? { id, label, at: this.elapsed + delay } : null; }
@@ -1016,7 +1019,7 @@ export class Session {
       e.position.set(sv.pos.x + Math.sin(fwd + ang) * dist, 0.9 + Math.random() * 1.4, sv.pos.z + Math.cos(fwd + ang) * dist);
       e.lookAt(sv.pos); e.visible = !this.chicken;
     };
-    if (this.chicken) { const s = this.seatSpot(1.8, [-30, 30, -40, 40]); if (s) this.showFig('ent', s.pos, s.yaw); A.play2D('uncle_rangspichiu', 0.4); }
+    if (this.chicken) { const s = this.seatSpot(1.8, [-30, 30, -40, 40]); if (s) this.showFig('ent', s.pos, s.yaw); this.tpVoice(0.55); }
     for (let k = 0; k < 6; k++) { showEye(k); await this.sleep(0.4); }
     const say = lines.map((l) => v.format(l.text));
     for (let k = 0; k < 3 && this.alive; k++) {
@@ -1031,7 +1034,7 @@ export class Session {
     await term.showLine('ai', say[2] || '', 0.6);
     await this.sleep(0.8);
     if (!(await this.arm(() => this.alive, true))) return 'stop';
-    if (this.chicken) { jumpscare('uncle', 1.6); A.play2D('uncle_shansenbu', 0.9); }
+    if (this.chicken) { jumpscare('uncle', 1.6); A.play2D('tp_ac', 0.95); }
     else { jumpscare('ent', 1.4); A.play2D('sfx_echo_scream', 1.0); flash(0.8); shake(0.08, 0.9); }
     await this.sleep(1.3);
     setFade(1);
@@ -1314,7 +1317,7 @@ export class Session {
     if (this.chicken) {
       for (let n = 3; n > 0; n--) { countdown(n); A.play2D('sfx_tick', 0.4); await this.sleep(1); }
       countdown(null);
-      jumpscare('uncle', 1.6); A.play2D('uncle_shansenbu', 0.9);
+      jumpscare('uncle', 1.6); A.play2D('tp_ac', 0.95);
       await this.sleep(1.5);
     } else {
       A.silenceAll();
@@ -1369,14 +1372,14 @@ export class Session {
       }
     }
     ch.fig.pos.copy(c); ch.fig.yaw = ch.yaw; ch.fig.speed = speed;
-    // 겁쟁이 모드: "샨센부!" → 3초 침묵 → "랑스피치우!!" 를 되풀이하며 춤추며 다가온다
+    // 겁쟁이 모드: 영상 속 "샨쎈부!"(A)와 "랑쓰티치오우!"(C)를 쉬지 않고 번갈아 외치며 춤추며 다가온다
     if (this.chicken && ch.released) {
       ch.voiceT = (ch.voiceT ?? 0.3) - dt;
       if (ch.voiceT <= 0) {
         const first = !ch.voiceB; ch.voiceB = first;
         _v3.set(c.x, 1.6, c.z);
-        app.audio.playAt(first ? 'uncle_shansenbu' : 'uncle_rangspichiu', _v3, 1.0, 30, 0);
-        ch.voiceT = (first ? 1.3 : 1.55) + 3.0;
+        app.audio.playAt(first ? 'tp_a' : 'tp_c', _v3, 1.0, 30, 0);
+        ch.voiceT = (first ? 0.78 : 1.1) + 0.12;
       }
     }
     if (ch.released && Math.hypot(p.x - c.x, p.z - c.z) < 0.85) this.caught(ch);
@@ -1451,7 +1454,7 @@ export class Session {
     const obj = this.whisperObj || (this.whisperObj = new THREE.Object3D());
     if (!obj.parent) this.scene.add(obj);
     obj.position.copy(this.p.pos).setY(1.55);
-    const lp = app.audio.loop3D(this.chicken ? 'uncle_hum' : 'sfx_whisper', obj, this.chicken ? 0.35 : 0.55, 0.4, 5, true);
+    const lp = app.audio.loop3D(this.chicken ? 'tp_ac' : 'sfx_whisper', obj, this.chicken ? 0.45 : 0.55, 0.4, 5, true);
     this.whisper = { lp, obj, t: 3.4, yaw0: this.p.yaw };
   }
 

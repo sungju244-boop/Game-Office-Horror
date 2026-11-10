@@ -12,7 +12,7 @@ export const CLIPS = [
   'sfx_door_bang', 'sfx_heartbeat', 'mus_hunt', 'mus_cute', 'mus_cute_chase', 'sfx_boing', 'sfx_tick',
   'sfx_maze_hit', 'sfx_glass_crack', 'sfx_printer', 'sfx_key', 'sfx_keyboard_far', 'sfx_guide', 'sfx_chapter', 'sfx_alarm',
   'sfx_bsod', 'sfx_maglock', 'sfx_whisper', 'sfx_echo_scream', 'sfx_freeze', 'sfx_desk_tap', 'sfx_chair',
-  'uncle_shansenbu', 'uncle_rangspichiu', 'uncle_hum', 'mus_chicken', 'mus_chicken_chase',
+  'tp_a', 'tp_c', 'tp_ac', 'mus_chicken', 'mus_chicken_chase',
 ];
 
 export class AudioSys {
