@@ -8,6 +8,27 @@ const FINGERS = ['index', 'middle', 'ring', 'pinky'];
 const SEG = ['metacarpal', 'phalanx-proximal', 'phalanx-intermediate', 'phalanx-distal', 'tip'];
 const THUMB = ['thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip'];
 
+/** 손 모델을 복제하고 관절을 손가락 사슬로 다시 잇는다. { model, J(이름→뼈), rest(처음 회전) } */
+export function makeHandModel(gltfScene, mat) {
+  const model = cloneSkinned(gltfScene);
+  model.updateMatrixWorld(true);
+  const J = {};
+  model.traverse((o) => { if (o.isBone || /wrist|finger|thumb/.test(o.name)) J[o.name] = o; });
+  const chain = (names) => { let par = J.wrist; for (const n of names) { const b = J[n]; if (b && par) { par.attach(b); par = b; } } };
+  for (const f of FINGERS) chain(SEG.map((sg) => `${f}-finger-${sg}`));
+  chain(THUMB);
+  model.traverse((o) => { if (o.isMesh) { o.material = mat; o.frustumCulled = false; } });
+  const rest = new Map(); for (const k in J) rest.set(k, J[k].quaternion.clone());
+  return { model, J, rest };
+}
+const _qb = new THREE.Quaternion(), _ax = new THREE.Vector3(1, 0, 0);
+/** 관절을 쉬는 자세에서 a 만큼 손바닥 쪽으로 굽힌다 */
+export function bendJoint(h, name, a, axis = _ax) {
+  const b = h.J[name]; if (!b) return;
+  b.quaternion.copy(h.rest.get(name)).multiply(_qb.setFromAxisAngle(axis, -a));
+}
+export { FINGERS };
+
 export class FingerHand {
   constructor(gltfScene) {
     this.scene = new THREE.Scene();
@@ -15,20 +36,9 @@ export class FingerHand {
     this.hemi = new THREE.HemisphereLight(0xdfe6ff, 0x302820, 1.3); this.scene.add(this.hemi);
     this.key = new THREE.DirectionalLight(0xfff1e0, 1.6); this.key.position.set(0.6, 1, 1.2); this.scene.add(this.key);
     this.root = new THREE.Group(); this.scene.add(this.root);
-    const model = cloneSkinned(gltfScene);
-    this.root.add(model);
-    model.updateMatrixWorld(true);
-    const J = {};
-    model.traverse((o) => { if (o.isBone || /wrist|finger|thumb/.test(o.name)) J[o.name] = o; });
-    // 사슬로 다시 잇기 (세계 위치는 그대로)
-    const chain = (names) => { let par = J.wrist; for (const n of names) { const b = J[n]; if (b && par) { par.attach(b); par = b; } } };
-    for (const f of FINGERS) chain(SEG.map((s) => `${f}-finger-${s}`));
-    chain(THUMB);
-    const mat = new THREE.MeshLambertMaterial({ color: 0xd8a585 });
-    model.traverse((o) => { if (o.isMesh) { o.material = mat; o.frustumCulled = false; } });
-    this.J = J;
-    this.rest = new Map(); for (const k in J) this.rest.set(k, J[k].quaternion.clone());
-    this.model = model;
+    const hm = makeHandModel(gltfScene, new THREE.MeshLambertMaterial({ color: 0xd8a585 }));
+    this.root.add(hm.model);
+    this.J = hm.J; this.rest = hm.rest; this.model = hm.model;
     this.v = 0; this.target = 0; this.holdUntil = 0; this.taps = []; this.jab = 0; this.pump = 0; this.flick = 0;
     this.axis = new THREE.Vector3(1, 0, 0); // 굽히는 축 (관절 기준)
     this.curlSign = -1;

@@ -1,6 +1,7 @@
 // office_layout.json → three.js 사무실 (Unity 판 OfficeBuilder / PropFactory 와 같은 배치·치수).
 import { THREE, D, place, boxGeo, frustumGeo, sag, tubeGeo, crtMaterial } from './kit.js';
 import { clone as cloneSkinned } from '../vendor/jsm/utils/SkeletonUtils.js';
+import { makeHandModel, bendJoint, FINGERS } from './fingerhand.js';
 
 // ---------- 상호작용 대상 ----------
 export class Interactable {
@@ -1343,6 +1344,18 @@ export function animRigDance(f, dt, time) {
   rot(f, 'head', -0.05 + Math.abs(beat) * 0.08, 0, Math.sin(ph) * 0.12);
 }
 
+/** 모델을 그림자처럼 어둡게 (k = 1 원래, 0 = 새까맣게). 재질 값만 바꿔 셰이더는 그대로 */
+export function shadeRig(f, k) {
+  if (!f.rig) return;
+  f.model.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      if (!m.userData.c0) m.userData.c0 = [m.color.clone(), m.emissive.clone()];
+      m.color.copy(m.userData.c0[0]).multiplyScalar(k); m.emissive.copy(m.userData.c0[1]).multiplyScalar(k);
+    }
+  });
+}
+
 /** 그것 모델에 빛나는 눈을 붙인다 (머리 → 가슴 순서로 늘어난다). 좌표는 모델 원래 단위(m) */
 export function addRigEyes(f) {
   const eyeMat = new THREE.MeshBasicMaterial({ map: eyeTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
@@ -1362,6 +1375,32 @@ export function addRigEyes(f) {
   f.setEyes = (n) => { f.n = n; eyes.forEach((e, i) => { e.visible = i < n; }); };
   f.setEyes(2);
   return f;
+}
+
+// ---------- 모니터 옆에서 뻗어 나오는 손 (WebXR generic hand, MIT) ----------
+// buildHand 와 같은 약속: 손끝 = -z, 손바닥 = 아래, 팔은 +z(어둠) 쪽. 어둡고 손가락이 길다
+export function buildXrHand(gltfScene, mats, parent) {
+  const root = new THREE.Group(); root.name = 'XrHand'; root.userData.dynamic = true; parent.add(root);
+  const hm = makeHandModel(gltfScene, mats.get('ent_hand'));
+  const inner = new THREE.Group(); inner.rotation.set(Math.PI / 2, 0, Math.PI / 2, 'ZYX'); // 손가락 -y → -z, 손바닥 → 아래
+  inner.scale.setScalar(1.25);
+  inner.add(hm.model); root.add(inner);
+  // 손가락 늘이기: 첫마디부터 손끝 쪽(관절의 -z)으로 길게
+  for (const f of FINGERS) { const b = hm.J[`${f}-finger-phalanx-proximal`]; if (b) b.scale.set(1, 1, 1.5); }
+  // 손목 뒤로 이어지는 팔 (어둠 속으로)
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.04, 0.9, 7), mats.get('ent_hand'));
+  arm.rotation.x = Math.PI / 2; arm.position.set(0, 0.01, 0.5); root.add(arm);
+  root.position.set(0, -60, 0);
+  return { root, J: hm.J, rest: hm.rest, inner, xr: true };
+}
+/** curl: 0 = 펴짐, 1 = 책상 모서리를 움켜쥠. tap: 검지를 들었다 내림 (0..1) */
+export function poseXrHand(h, curl, tap = 0) {
+  for (const f of FINGERS) {
+    const c = curl * (f === 'index' ? 1 - tap * 0.9 : 1);
+    bendJoint(h, `${f}-finger-phalanx-proximal`, c * 0.9 - (f === 'index' ? tap * 0.5 : 0));
+    bendJoint(h, `${f}-finger-phalanx-intermediate`, c * 1.0);
+    bendJoint(h, `${f}-finger-phalanx-distal`, c * 0.7);
+  }
 }
 
 // ---------- 추격용 길찾기 (거친 격자 BFS + 시야 잇기) ----------

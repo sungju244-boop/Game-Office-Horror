@@ -3,7 +3,7 @@
 import { THREE, D, mergeStatic, disposeTree, crtMaterial } from './kit.js';
 import { Vars, cond } from './story.js';
 import { buildWorld, MatLib, buildMonster, buildEntity, animEntity, buildHand, poseHand, buildUncle, animUncle, NavGrid,
-  buildRig, animRigWalk, animRigCreep, animRigDance, addRigEyes } from './world.js';
+  buildRig, animRigWalk, animRigCreep, animRigDance, addRigEyes, buildXrHand, poseXrHand } from './world.js';
 import { Terminal, TERM_W, TERM_H } from './terminal.js';
 import { Maze, MAZES } from './maze.js';
 import {
@@ -79,7 +79,7 @@ export class Session {
     this.monster = M.get('sup') ? buildRig(M.get('sup'), scene, { height: 2.1, emissive: 0.22, name: 'Supervisor' }) : buildMonster(this.mats, scene, this.faceTex);
     this.entity = M.get('ent') ? addRigEyes(buildRig(M.get('ent'), scene, { height: 2.05, emissive: 0.3, name: 'Entity' })) : buildEntity(this.mats, scene);
     this.uncle = M.get('tp') ? buildRig(M.get('tp'), scene, { height: 1.35, emissive: 0.08, name: 'ToiletPaper' }) : buildUncle(this.mats, scene);
-    this.hand = buildHand(this.mats, scene);
+    this.hand = app.handGltf ? buildXrHand(app.handGltf, this.mats, scene) : buildHand(this.mats, scene);
     this.monLight = new THREE.PointLight(0xa8c4ff, 0, 6, 1.6);
     scene.add(this.monLight);
     this.mats.get('monster_skin').emissive?.setRGB(0.05, 0.055, 0.07);
@@ -667,11 +667,11 @@ export class Session {
     while (ok() && this.elapsed - t0 < 1.2) {
       const k = Math.min(1, (this.elapsed - t0) / 1.2), e = k * k * (3 - 2 * k);
       h.root.position.lerpVectors(from, to, e);
-      poseHand(h, Math.min(1, e * 1.3));
+      (h.xr ? poseXrHand : poseHand)(h, Math.min(1, e * 1.3));
       await this.sleep(0.016);
     }
     for (let tap = 0; tap < 2 && ok(); tap++) {
-      for (let k = 0; k <= 8; k++) { poseHand(h, 1, Math.sin((k / 8) * Math.PI)); await this.sleep(0.03); }
+      for (let k = 0; k <= 8; k++) { (h.xr ? poseXrHand : poseHand)(h, 1, Math.sin((k / 8) * Math.PI)); await this.sleep(0.03); }
       A.playAt('sfx_desk_tap', to, 0.8, 6);
       await this.sleep(0.35);
     }

@@ -4,6 +4,7 @@ import { parseJsonc, localize, Vars, Story } from './story.js';
 import { Session } from './session.js';
 import { GLTFLoader } from '../vendor/jsm/loaders/GLTFLoader.js';
 import { FingerHand } from './fingerhand.js';
+import { shadeRig } from './world.js';
 import { TERM_W, TERM_H } from './terminal.js';
 import { t, setLang, getLang, applyDom } from './i18n.js';
 import {
@@ -582,8 +583,8 @@ async function titleApparition() {
     flash(0.25); app.audio.play2D('sfx_static_2', kind === 'uncle' ? 0.15 : 0.3);
     const yaw = Math.atan2(-(cam.position.x - pos.x), -(cam.position.z - pos.z));
     const f = s.showFig(kind === 'sup' ? 'sup' : 'ent', pos, yaw, { glow: 0.7 });
-    if (kind === 'shadow') s.entity.setEyes(0);
-    await sleepMs(kind === 'uncle' ? 1400 : 1000);
+    if (kind === 'shadow') { s.entity.setEyes(0); shadeRig(s.entity, 0.04); } // 아직 엔딩을 못 봤으면 희미한 그림자만
+    try { await sleepMs(kind === 'uncle' ? 1400 : 1000); } finally { if (kind === 'shadow') shadeRig(s.entity, 1); }
     flash(0.2); app.audio.play2D('sfx_static_1', 0.2);
     s.hideFig(kind === 'sup' ? 'sup' : 'ent');
   }
