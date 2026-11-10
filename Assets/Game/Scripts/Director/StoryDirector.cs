@@ -11,7 +11,7 @@ namespace NightEval.Director
     /// → 연출(run) → 엔딩 / 미로 / 선택지 / 할 일 → 다음.
     /// 대사는 플레이어가 자리에 앉아 있을 때만 진행된다 (자리를 비우면 화면은 그대로 기다린다).
     /// </summary>
-    public sealed class StoryDirector : MonoBehaviour
+    public sealed partial class StoryDirector : MonoBehaviour
     {
         // 대사를 직접 다루는 연출 (일반 대사 표시를 건너뛴다)
         static readonly HashSet<string> SeqCustom = new HashSet<string> { "end1", "end3", "end4", "end5", "end6", "chase" };
@@ -274,15 +274,11 @@ namespace NightEval.Director
                     done(escaped ? node.Chase.Escaped : node.Chase.Caught);
                     yield break;
                 }
-                case "end1": case "end3": case "end4": case "end5": case "end6":
-                    // 엔딩 연출: 대사를 보여 준 뒤 엔딩으로 (정전·눈·블루스크린·공허·텍스트 어드벤처 화면은 2단계)
-                    if (node.Run == "end3") { s.Terminal.Glitch(1f, 1.2f); s.Terminal.PlaySfx("sfx_bsod", 0.7f, 0f); }
-                    foreach (var line in lines)
-                    {
-                        if (s.Seat.IsSeated) yield return s.Terminal.ShowLine(line.Who, vars.Format(line.Text), line.Glitch);
-                        else { s.Hud.Caption(vars.Format(line.Text)); yield return new WaitForSeconds(2.4f); }
-                    }
-                    done(""); yield break;
+                case "end1": yield return End1(lines, done); yield break;
+                case "end3": yield return End3(done); yield break;
+                case "end4": yield return End4(done); yield break;
+                case "end5": yield return End5(lines, done); yield break;
+                case "end6": yield return End6(done); yield break;
             }
             done("");
         }

@@ -343,6 +343,58 @@ namespace NightEval.Terminal
             mazeTex.SetPixels32(mazePx); mazeTex.Apply(false);
         }
 
+        // ---------- 가짜 블루스크린 (엔딩 3) ----------
+        GameObject bsod;
+        public void ShowBsod(IList<string> lines)
+        {
+            var root = (RectTransform)hdrLeft.transform.parent;
+            if (bsod == null)
+            {
+                var rt = UIKit.Rect(root, "Bsod", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                bsod = rt.gameObject;
+                UIKit.Panel(rt, new Color(0.03f, 0.2f, 0.62f));
+                var t = UIKit.Label(UIKit.Rect(rt, "Text", Vector2.zero, Vector2.one, new Vector2(80, 80), new Vector2(-80, -80)), "", font, 34, Color.white, TextAnchor.MiddleLeft);
+                t.lineSpacing = 1.4f;
+                PropFactory.SetLayer(root.gameObject, Layers.Terminal);
+            }
+            bsod.GetComponentInChildren<Text>().text = ":(\n\n" + string.Join("\n", lines);
+            bsod.transform.SetAsLastSibling();
+            bsod.SetActive(true);
+        }
+        public void HideBsod() { if (bsod != null) bsod.SetActive(false); }
+
+        // ---------- 명령 입력 (엔딩 1·5) ----------
+        Text inputLine;
+        string inputBuf;
+        bool inputActive, inputDone;
+        public bool InInput => inputActive;
+
+        /// <summary>한 줄 입력을 받는다 (Enter). maxWait 초가 지나면 입력한 데까지로 끝낸다 (0 = 무제한)</summary>
+        public IEnumerator ReadInput(string prompt, float maxWait, Action<string> done)
+        {
+            inputLine = NewLine();
+            inputBuf = ""; inputActive = true; inputDone = false;
+            float t = 0f;
+            while (!inputDone && (maxWait <= 0f || t < maxWait))
+            {
+                t += Time.deltaTime;
+                foreach (char c in Input.inputString)
+                {
+                    if (c == '\b') { if (inputBuf.Length > 0) inputBuf = inputBuf.Substring(0, inputBuf.Length - 1); }
+                    else if (c == '\n' || c == '\r') { inputDone = true; break; }
+                    else if (!char.IsControl(c) && inputBuf.Length < 40) { inputBuf += c; PlaySfx("sfx_key", 0.3f, 0.08f); }
+                }
+                string comp = Input.compositionString;
+                inputLine.text = "<color=" + (Green ? "#4dff6a" : "#9fd8ff") + ">" + prompt + "</color>" + Escape(inputBuf + comp) + (Mathf.FloorToInt(Time.time * 3f) % 2 == 0 ? "_" : " ");
+                Relayout(inputLine);
+                yield return null;
+            }
+            inputActive = false;
+            inputLine.text = "<color=" + (Green ? "#4dff6a" : "#9fd8ff") + ">" + prompt + "</color>" + Escape(inputBuf);
+            Relayout(inputLine);
+            done?.Invoke(inputBuf);
+        }
+
         void UpdateExtras(float dt)
         {
             if (hiddenText != null && !string.IsNullOrEmpty(hiddenText.text))

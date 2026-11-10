@@ -385,6 +385,14 @@ namespace NightEval
                 () => { s.Player.SetControl(true, true); s.Interactor.Active = true; });
         }
 
+        /// <summary>엔딩 3: 엔딩 화면 없이 기록만 하고 진짜 타이틀로 (리셋 루프)</summary>
+        public void FinishToTitle(string endingId)
+        {
+            if (Story.Endings.TryGetValue(endingId, out var e)) Settings.MarkEnding(e.Number);
+            Phase = GamePhase.Ending;
+            ToTitle();
+        }
+
         public void TriggerEnding(string endingId)
         {
             if (Phase == GamePhase.Ending) return;
@@ -486,7 +494,7 @@ namespace NightEval
                 {
                     if (s.Menus.ConfirmOpen) { s.Menus.HideConfirm(); s.Player.SetControl(true, true); s.Interactor.Active = true; }
                     else if (Paused) Resume();
-                    else if (s.Seat.IsSeated) s.Seat.RequestExit();
+                    else if (s.Seat.IsSeated) { if (!s.Terminal.InInput && !s.Terminal.InMaze && !s.Story.Ending) s.Seat.RequestExit(); }
                     else if (!s.Seat.InTransition) Pause();
                 }
             }

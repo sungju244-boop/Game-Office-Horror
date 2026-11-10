@@ -96,10 +96,15 @@ namespace NightEval.World
         static void BuildFloor(Dictionary<string, object> d, Transform parent, PropFactory pf, WorldRegistry reg)
         {
             if (d == null) return;
-            if (MiniJson.Bool(d, "void")) // 맵 밖의 공허 (엔딩 4): 1단계에서는 바닥을 만들지 않고 위치만 기억한다
+            if (MiniJson.Bool(d, "void")) // 맵 밖의 공허 (엔딩 4): 정전 뒤 직원용 문 너머에 나타난다 (처음엔 숨김)
             {
                 var vmin = MiniJson.Floats(d, "min"); var vmax = MiniJson.Floats(d, "max");
-                reg.AddAnchor("Room_" + MiniJson.Str(d, "id", "void"), pf.Node(parent, "Room_void", new Vector3((vmin[0] + vmax[0]) / 2f, 1.2f, (vmin[1] + vmax[1]) / 2f)).transform);
+                var vc = new Vector3((vmin[0] + vmax[0]) / 2f, 0f, (vmin[1] + vmax[1]) / 2f);
+                reg.AddAnchor("Room_" + MiniJson.Str(d, "id", "void"), pf.Node(parent, "Room_void", vc + Vector3.up * 1.2f).transform);
+                var vf = pf.Box(parent, "VoidFloor", new Vector3(vmax[0] - vmin[0], 0.1f, vmax[1] - vmin[1]), vc + Vector3.down * 0.05f, "void_floor", default, 4f, true);
+                vf.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                vf.SetActive(false);
+                reg.VoidFloor = vf;
                 return;
             }
             var min = MiniJson.Floats(d, "min");

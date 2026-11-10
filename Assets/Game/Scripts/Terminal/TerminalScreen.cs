@@ -225,8 +225,12 @@ namespace NightEval.Terminal
             centerMain.text = centerSub.text = "";
         }
 
+        /// <summary>초록 글씨 화면 (가이드를 귀찮게 했을 때·텍스트 어드벤처)</summary>
+        public static bool Green;
+
         public static string Prefix(string who)
         {
+            if (Green) return who == "guide" ? "<color=#6dff7e>[가이드] </color>" : who == "me" ? "<color=#4dff6a>› </color>" : "<color=#4dff6a>[시스템] </color>";
             switch (who)
             {
                 case "user": return "<color=#8ea4b6>사용자 › </color>";
@@ -241,6 +245,7 @@ namespace NightEval.Terminal
 
         static string BodyColor(string who)
         {
+            if (Green) return who == "guide" ? "#c8ffcf" : "#b6ffbf";
             switch (who)
             {
                 case "user": return "#dce8f2";
