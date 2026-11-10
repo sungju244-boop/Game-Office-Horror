@@ -9,7 +9,8 @@ cp Assets/Resources/Data/office_layout.json $W/data/office_layout.json
 for f in Assets/Resources/TexturesRaw/*.bytes; do cp "$f" "$W/tex/$(basename "${f%.bytes}").png"; done
 for f in Assets/Resources/Audio/*.wav; do
   out="$W/audio/$(basename "${f%.wav}").ogg"
-  ffmpeg -loglevel error -y -i "$f" -c:a libvorbis -q:a 3 "$out"
+  # 원본이 바뀐 소리만 다시 인코딩 (매번 다시 만들면 내용이 같아도 파일이 달라진다)
+  if [ ! -f "$out" ] || [ "$f" -nt "$out" ]; then ffmpeg -loglevel error -y -i "$f" -c:a libvorbis -q:a 3 "$out"; fi
 done
 TMP=$(mktemp -d)
 if [ ! -f $W/vendor/three.module.min.js ]; then

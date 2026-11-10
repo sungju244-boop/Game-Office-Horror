@@ -70,7 +70,7 @@ export class MatLib {
       case 'cable': return this.lit(null, C(0.03, 0.03, 0.035), 1, 0.45);
       case 'screen_dead': return new THREE.MeshPhongMaterial({ color: C(0.025, 0.03, 0.035), shininess: 90, specular: C(0.6, 0.65, 0.7) });
       case 'water': return this.lit(null, C(0.35, 0.5, 0.62), 1, 0.8);
-      case 'cloth': return this.lit(null, C(0.1, 0.11, 0.13), 1, 0.05);
+      case 'cloth': return this.lit(null, C(0.34, 0.37, 0.42), 1, 0.05);
       case 'skin': return this.lit(null, C(0.52, 0.43, 0.38), 1, 0.1);
       case 'hole': return new THREE.MeshBasicMaterial({ color: 0x000000 });
       case 'cat_fur': return this.lit('cat_fur', C(0.78, 0.78, 0.8), 0, 0.05);
@@ -103,7 +103,7 @@ export class MatLib {
       case 'printer_body': return this.lit('plastic', C(0.78, 0.78, 0.76), 0.5, 0.25);
       case 'note116': return this.lit('note116', C(1, 1, 1), 0, 0.02);
       case 'ent_black': return new THREE.MeshBasicMaterial({ color: C(0.004, 0.004, 0.006) });
-      case 'ent_hand': return this.lit(null, C(0.05, 0.05, 0.06), 1, 0.4, C(0.012, 0.012, 0.016));
+      case 'ent_hand': return new THREE.MeshLambertMaterial({ color: C(0.016, 0.016, 0.02) });
       case 'uncle_skin': return this.lit(null, C(0.86, 0.66, 0.52), 1, 0.15);
       case 'uncle_shirt': return this.lit(null, C(0.93, 0.9, 0.82), 1, 0.05);
       case 'uncle_pants': return this.lit(null, C(0.78, 0.68, 0.52), 1, 0.05);
@@ -316,7 +316,16 @@ export function buildWorld(layout, mats, scene) {
     const w = bx - ax, d = bz - az, cx = (ax + bx) / 2, cz = (az + bz) / 2;
     const fl = F.box(structure, [w, 0.1, d], [cx, -0.05, cz], f.mat || 'carpet');
     fl.castShadow = false;
-    if (f.void) { fl.userData.dynamic = true; fl.visible = false; reg.voidFloor = fl; }
+    if (f.void) {
+      // 공허: 끝없는 격자 바닥, 짓다 만 기둥들, 멀리 희미한 문틀 빛 (엔딩 4 때만 보인다)
+      const vg = F.node(root, 'Void'); vg.userData.dynamic = true; vg.visible = false;
+      fl.parent.remove(fl); vg.add(fl); fl.position.set(cx, -0.05, -cz);
+      const pm = new THREE.MeshBasicMaterial({ color: C(0.05, 0.055, 0.065) });
+      for (const [px, pz] of [[15.5, -6.0], [18.0, -9.5], [20.5, -5.5], [23.0, -11.0], [25.5, -7.0], [27.5, -12.5]]) F.mesh(vg, boxGeo(0.5, 3.2, 0.5, 0), pm, [px, 1.6, pz], [0, 0, 0], false);
+      const gm = new THREE.MeshBasicMaterial({ color: C(0.55, 0.62, 0.72), fog: false });
+      F.mesh(vg, new THREE.PlaneGeometry(1.0, 2.1), gm, [29.9, 1.05, -8.0], [0, 90, 0], false);
+      reg.voidFloor = vg;
+    }
     if (f.ceilMat !== 'none') F.box(structure, [w + 0.4, 0.12, d + 0.4], [cx, h + 0.06, cz], f.ceilMat || 'ceiling');
     grid.rect(cx, cz, w, d, 0, grid.floor);
     reg.rooms.set(f.id, { min: f.min, max: f.max });

@@ -136,9 +136,13 @@ export class Session {
     const hidden = [];
     this.scene.traverse((o) => { if (!o.visible) { hidden.push(o); o.visible = true; } });
     try {
+      // 실제로 그리는 대상(화면용 렌더 타깃)과 같은 조건으로 만들어야 그대로 다시 쓰인다
+      r.setRenderTarget(app.rt);
       r.compile(this.scene, app.camera);
+      if (this.feed) r.compile(this.scene, this.feed.cam); // 아바타(레이어 1)·CCTV 전용 형체(레이어 2)까지
+      r.setRenderTarget(null);
       if (this.feed) { r.setRenderTarget(this.feed.rt); r.render(this.scene, this.feed.cam); r.setRenderTarget(null); }
-    } catch (e) { console.warn('셰이더 준비 실패', e); }
+    } catch (e) { console.warn('셰이더 준비 실패', e); r.setRenderTarget(null); }
     for (const o of hidden) o.visible = false;
     r.shadowMap.needsUpdate = true;
   }
@@ -581,7 +585,7 @@ export class Session {
     if (!(await this.arm(ok))) return;
     const A = app.audio, sv = this.seatView, h = this.hand;
     const n = sv.n.clone().setY(0).normalize(); // 화면 → 플레이어 방향
-    const right = new THREE.Vector3().crossVectors(UP, n).normalize().negate(); // 플레이어 기준 오른쪽
+    const right = new THREE.Vector3().crossVectors(UP, n).normalize(); // 플레이어 기준 오른쪽
     if (this.chicken) {
       const pos = sv.sp.clone().addScaledVector(right, -0.75).addScaledVector(n, -0.9);
       this.showFig('ent', pos, Math.atan2(n.x, n.z));
@@ -593,8 +597,8 @@ export class Session {
     this.leanTarget = 1; // 몸을 뒤로 젖혀 모니터 주변이 보인다
     await this.sleep(1.1); if (!ok()) return;
     const deskY = 0.775;
-    const from = sv.sp.clone().addScaledVector(right, -0.34).addScaledVector(n, -0.42).setY(deskY + 0.02);
-    const to = sv.sp.clone().addScaledVector(right, -0.33).addScaledVector(n, 0.02).setY(deskY + 0.02);
+    const from = sv.sp.clone().addScaledVector(right, -0.3).addScaledVector(n, -0.62).setY(deskY + 0.03);
+    const to = sv.sp.clone().addScaledVector(right, -0.31).addScaledVector(n, -0.04).setY(deskY + 0.025);
     h.root.position.copy(from);
     h.root.lookAt(_v1.copy(from).sub(n));
     A.playAt('sfx_whisper', to, 0.35, 6);
@@ -696,6 +700,10 @@ export class Session {
   /** 회의실 유리에 비친 실루엣 (내 등 뒤에 서 있는 것처럼, 유리 너머 안쪽에) */
   async scGlassFigure(a, ok) {
     if (!(await this.arm(ok))) return;
+    const glass = new THREE.Vector3(9.25, 1.3, 4.0);
+    const t0 = this.elapsed;
+    while (ok() && this.elapsed - t0 < 9 && !this.looksAt(glass, 0.72, 1.3)) await this.sleep(0.08);
+    if (!ok() || !this.looksAt(glass, 0.72, 1.3)) return;
     const p = this.p;
     const x = Math.min(11.2, Math.max(6.4, p.pos.x + 0.6)), z = 6.3; // three z (= 배치 z -6.3)
     const pos = new THREE.Vector3(x, 0, z);

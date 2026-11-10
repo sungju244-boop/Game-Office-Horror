@@ -615,6 +615,30 @@ function openSettings() {
 function closeSettings() { $('settings').hidden = true; saveSettings(); }
 function applySettings() { app.audio.masterVol = settings.master; app.audio.musicVol = settings.music; app.audio.applyVolumes(); }
 
+/** 위에서 내려다보는 추격 화면: 시각과 비상구 표시 (화면 밖이면 가장자리에) */
+const _ep = new THREE.Vector3();
+function updateCctvHud(s) {
+  $('cctvtime').textContent = s.vars.get('clock') + ':' + String(Math.floor(app.time) % 60).padStart(2, '0');
+  const ex = s.anchorPos('ExitPoint');
+  _ep.copy(ex).setY(0.5).project(app.camera);
+  let x = _ep.x, y = _ep.y;
+  const m = Math.max(Math.abs(x), Math.abs(y));
+  if (m > 0.86) { x = (x / m) * 0.86; y = (y / m) * 0.86; }
+  const el = $('exitmark');
+  el.style.left = ((x + 1) / 2 * window.innerWidth) + 'px';
+  el.style.top = ((1 - y) / 2 * window.innerHeight) + 'px';
+  // CCTV 추적 상자: 나(초록)와 쫓아오는 것(빨강)
+  const box = (id, pos, show) => {
+    const b = $(id); b.hidden = !show; if (!show) return;
+    _ep.copy(pos).setY(1.0).project(app.camera);
+    b.style.left = ((_ep.x + 1) / 2 * window.innerWidth) + 'px';
+    b.style.top = ((1 - _ep.y) / 2 * window.innerHeight) + 'px';
+  };
+  box('trkme', s.p.pos, true);
+  const ch = s.chase;
+  box('trksup', ch ? ch.pos : s.p.pos, !!(ch && ch.shown && Math.abs(_ep.copy(ch.pos).setY(1).project(app.camera).x) < 1.05 && Math.abs(_ep.y) < 1.05));
+}
+
 // ---------- 루프 ----------
 function frame() {
   requestAnimationFrame(frame);
@@ -626,7 +650,7 @@ function frame() {
   fx.fade += Math.sign(fx.fadeTarget - fx.fade) * Math.min(Math.abs(fx.fadeTarget - fx.fade), fx.fadeSpeed * dt);
   if (!s) return;
   if (!app.paused) {
-    if (app.phase === 'play') { s.update(dt); if (s.topdown) $('cctvtime').textContent = s.vars.get('clock') + ':' + String(Math.floor(app.time) % 60).padStart(2, '0'); }
+    if (app.phase === 'play') { s.update(dt); if (s.topdown) updateCctvHud(s); }
     else if (app.phase === 'title' || app.phase === 'gate') {
       const tt = app.time, tc = s.reg.titleCam;
       app.camera.position.set(tc.pos[0] + Math.sin(tt * 0.07) * 0.25, tc.pos[1] + Math.sin(tt * 0.11) * 0.05, -(tc.pos[2] + Math.cos(tt * 0.05) * 0.15));
@@ -658,7 +682,7 @@ function frame() {
   pm.exposure.value = 0.8 + 1.2 * b + (ck ? 0.25 : 0); pm.gammaV.value = 1.2 - 0.48 * b - (ck ? 0.05 : 0);
   pm.vignette.value = (ck ? 0.3 : 0.55) + tn * 0.08; pm.grain.value = (ck ? 0.02 : 0.035) + tn * 0.012;
   pm.chroma.value = 0.012 + tn * 0.006; pm.desat.value = (ck ? 0.05 : 0.25) + tn * 0.06;
-  if (s.topdown) { pm.desat.value = 0.8; pm.grain.value = 0.09; pm.vignette.value = 0.75; pm.chroma.value = 0.03; }
+  if (s.topdown) { pm.desat.value = 0.75; pm.grain.value = 0.07; pm.vignette.value = 0.6; pm.chroma.value = 0.025; pm.exposure.value += 0.45; }
   pm.flash.value = fx.flash; pm.fade.value = fx.fade; pm.time.value = app.time;
   app.renderer.getDrawingBufferSize(pm.resolution.value);
   app.renderer.setRenderTarget(app.rt);

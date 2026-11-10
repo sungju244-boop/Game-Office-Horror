@@ -152,11 +152,11 @@ def entity_full():
 def void_floor():
     s = 128
     n = fbm(s, 4, 4, 900)
-    v = 0.05 + n * 0.05
+    v = 0.12 + n * 0.12
     a = to_img(colorize(np.clip(v, 0, 1), (0.0, 0.0, 0.0), (0.5, 0.52, 0.56)))
     d = ImageDraw.Draw(a)
-    d.line([(0, 0), (s - 1, 0)], fill=(26, 28, 32), width=1)
-    d.line([(0, 0), (0, s - 1)], fill=(26, 28, 32), width=1)
+    d.line([(0, 0), (s - 1, 0)], fill=(96, 104, 122), width=1)
+    d.line([(0, 0), (0, s - 1)], fill=(96, 104, 122), width=1)
     save(a, "void_floor")
 
 

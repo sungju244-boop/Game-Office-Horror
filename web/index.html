@@ -142,8 +142,14 @@
   #typer { position: fixed; left: -9999px; top: 0; width: 200px; opacity: 0; }
   #cctvhud { position: fixed; inset: 0; pointer-events: none; }
   #cctvhud .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 2px, transparent 2px 4px); }
-  #cctvhud .tag { position: absolute; left: 24px; top: 18px; font-size: 20px; color: #e8f2e8; text-shadow: 2px 2px 0 #000; letter-spacing: 0.04em; }
+  #cctvhud .tag { position: absolute; left: 24px; bottom: 18px; font-size: 20px; color: #e8f2e8; text-shadow: 2px 2px 0 #000; letter-spacing: 0.04em; }
   #cctvhud .rec { color: #ff4a3a; animation: recBlink 1s steps(2) infinite; }
+  .trk { position: absolute; left: 0; top: 0; width: 54px; height: 54px; transform: translate(-50%, -50%); border: 2px solid #5cff80; }
+  .trk span { position: absolute; left: -2px; top: -22px; font-size: 15px; color: #04130a; background: #5cff80; padding: 0 5px; white-space: nowrap; }
+  .trk.sup { border-color: #ff5a4a; animation: recBlink 0.6s steps(2) infinite; }
+  .trk.sup span { background: #ff5a4a; color: #1a0402; }
+  #exitmark { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); font-family: var(--font-b); font-size: 18px; color: #04130a;
+    background: #5cff80; padding: 2px 8px; box-shadow: 0 0 12px rgba(92,255,128,0.6); }
   @keyframes recBlink { 50% { opacity: 0.2; } }
   @media (max-height: 560px) {
     #title .menu { margin-top: 8px; gap: 0; }
@@ -197,7 +203,7 @@
 <input id="typer" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="terminal input">
 
 <!-- 위에서 내려다보는 추격 화면의 CCTV 표시 -->
-<div id="cctvhud" hidden><div class="scan"></div><div class="tag"><span class="rec">● REC</span> CAM 04 · 4F <span id="cctvtime"></span></div></div>
+<div id="cctvhud" hidden><div class="scan"></div><div class="tag"><span class="rec">● REC</span> CAM 04 · 4F <span id="cctvtime"></span></div><div id="exitmark">EXIT</div><div class="trk me" id="trkme"><span>117</span></div><div class="trk sup" id="trksup"><span>???</span></div></div>
 
 <div class="screen black" id="loading">
   <div class="sub" data-i18n="gameTitle">야간 평가실</div>
